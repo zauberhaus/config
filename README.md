@@ -19,7 +19,7 @@ go get github.com/zauberhaus/config
 
 ## Usage
 
-The `config` package provides a simple API to load configurations. Define your configuration structure with `default` tags for initial values:
+The `config` package provides a simple API to load configurations. Here's an example using `cobra` to define command-line flags and load configuration:
 
 ```go
 package main
@@ -27,8 +27,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
+	"github.com/spf13/cobra"
 	"github.com/zauberhaus/config"
+	"github.com/zauberhaus/config/pkg/flags"
 )
 
 type MyConfig struct {
@@ -37,13 +40,64 @@ type MyConfig struct {
 }
 
 func main() {
-	cfg, _, err := config.Load[*MyConfig]()
-	if err != nil {
-		log.Fatalf("failed to load configuration: %v", err)
+	if err := RootCmd().Execute(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func RootCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "my-app",
+		Short: "My application with config",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Bind Cobra flags to the config struct
+			flagList := flags.NewFlagList(nil)
+			_ = flagList.BindCmdFlag(cmd, "Host", "host")
+			_ = flagList.BindCmdFlag(cmd, "Port", "port")
+
+			// Define config options
+			o := []config.Option{
+				config.WithName("my-app"), // Prefix for environment variables (e.g., MY_APP_HOST)
+				config.WithFlags(flagList),
+			}
+
+			// Optionally, specify a config file via flag or environment variable
+			configFile := os.Getenv("MY_APP_CONFIG_FILE") // Custom env var for config file
+			if cmd.Flags().Changed("config") {
+				if cfgFile, err := cmd.Flags().GetString("config"); err == nil && cfgFile != "" {
+					configFile = cfgFile
+				}
+			}
+
+			if configFile != "" {
+				o = append(o, config.WithFile(configFile))
+			}
+
+			// Load the configuration
+			cfg, loadedFile, err := config.Load[*MyConfig](o...)
+			if err != nil {
+				return fmt.Errorf("failed to load configuration: %w", err)
+			}
+
+			if loadedFile != "" {
+				fmt.Printf("Configuration loaded from: %s\n", loadedFile)
+			} else {
+				fmt.Println("No configuration file loaded, using defaults and environment variables.")
+			}
+
+			fmt.Printf("Host: %s\n", cfg.Host)
+			fmt.Printf("Port: %d\n", cfg.Port)
+
+			return nil
+		},
 	}
 
-	fmt.Printf("Host: %s\n", cfg.Host)
-	fmt.Printf("Port: %d\n", cfg.Port)
+	// Define Cobra flags
+	cmd.Flags().StringP("host", "H", "", "Specify the host")
+	cmd.Flags().IntP("port", "P", 0, "Specify the port")
+	cmd.Flags().StringP("config", "c", "", "Path to the configuration file (e.g., config.yaml)")
+
+	return cmd
 }
 ```
 
