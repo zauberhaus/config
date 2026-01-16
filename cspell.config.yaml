@@ -1,0 +1,31 @@
+version: "0.2"
+language: en
+ignorePaths:
+  - go.mod
+  - go.sum
+  - .gitignore
+  - cspell.config.yaml
+words:
+  - ALLCAPS
+  - alllower
+  - apiurl
+  - boumenot
+  - coverprofile
+  - creasty
+  - gobeam
+  - gocover
+  - gotest
+  - gotestfmt
+  - gotesttools
+  - irongut
+  - marocchino
+  - mitchellh
+  - myhost
+  - mytarget
+  - newhost
+  - pflag
+  - pflags
+  - stretchr
+  - testhost
+  - verylongname
+  - Zauberhaus
