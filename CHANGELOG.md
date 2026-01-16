@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/zauberhaus/config/compare/v1.0.0...v1.0.1) (2026-01-16)
+
+
+### Bug Fixes
+
+* add env.Prefix function ([d90d907](https://github.com/zauberhaus/config/commit/d90d907997c4d87b82a16ae63a0bc0c422bff68e))
+* add env.Prefix function ([3231600](https://github.com/zauberhaus/config/commit/3231600a85623cfb4fc5b788a30d60e939d2746c))
+
 ## 1.0.0 (2026-01-16)
 
 
