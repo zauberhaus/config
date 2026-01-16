@@ -33,7 +33,7 @@ jobs:
 
     - name: Run Tests
       run: |
-        go test -race -json -coverprofile=coverage.txt -v ./... 2>&1 | tee /tmp/gotest.log | gotestfmt -hide all
+        ./tests.sh
 
     - name: Convert go coverage to cobertura format
       shell: bash
