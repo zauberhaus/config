@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/zauberhaus/config/compare/v1.0.1...v1.0.2) (2026-01-16)
+
+
+### Bug Fixes
+
+* remove go-homedir dependency ([8265923](https://github.com/zauberhaus/config/commit/8265923561fa86ed3ea51f645b50c1d66bd2956f))
+* remove go-homedir dependency ([441cb05](https://github.com/zauberhaus/config/commit/441cb053e4f8e7be9488f8ce09dfd44a6d6e15d3))
+
 ## [1.0.1](https://github.com/zauberhaus/config/compare/v1.0.0...v1.0.1) (2026-01-16)
 
 
