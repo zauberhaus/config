@@ -85,3 +85,9 @@ func Set[T any](value T, options ...Option) (T, error) {
 
 	return value, nil
 }
+
+func Prefix(name string) string {
+	o := &EnvOptions{}
+	WithName(name).Set(o)
+	return o.Prefix
+}
