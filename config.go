@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/creasty/defaults"
-	"github.com/mitchellh/go-homedir"
 	"github.com/stretchr/testify/assert/yaml"
 	"github.com/zauberhaus/config/pkg/env"
 	"github.com/zauberhaus/config/pkg/flags"
@@ -203,7 +202,7 @@ func findConfigFile(o *ConfigOptions) (string, FileType, error) {
 	paths := append(o.Paths, cwd)
 
 	// Find home index.
-	home, err := homedir.Dir()
+	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", UnknownFileType, fmt.Errorf("get homedir failed: %v", err)
 	}
