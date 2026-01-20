@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/zauberhaus/config/compare/v1.0.2...v1.0.3) (2026-01-20)
+
+
+### Bug Fixes
+
+* Synk finding ([1453b32](https://github.com/zauberhaus/config/commit/1453b320c74a388cf34214ec7ff70ebfe09c5ee1))
+
 ## [1.0.2](https://github.com/zauberhaus/config/compare/v1.0.1...v1.0.2) (2026-01-16)
 
 
