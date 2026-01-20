@@ -53,6 +53,10 @@ func Load[P ~*T, T any](options ...Option) (P, string, error) {
 		o.FileType = ft
 
 	} else {
+		if strings.Contains(o.File, "..") {
+			return nil, "", fmt.Errorf("path traversal attempt: '%s'", o.File)
+		}
+
 		o.FileType = GetFileType(o.File, extensions...)
 	}
 
@@ -178,8 +182,10 @@ func findConfigFile(o *ConfigOptions) (string, FileType, error) {
 
 	tmp := os.Getenv("CONFIG")
 	if tmp != "" {
-		fp := strings.ReplaceAll(tmp, "..", ".")
-		fp = filepath.Clean(fp)
+		if strings.Contains(tmp, "..") {
+			return "", UnknownFileType, fmt.Errorf("path traversal attempt: '%s'", tmp)
+		}
+		fp := filepath.Clean(tmp)
 
 		name, err := filepath.Abs(fp)
 		if err != nil {
@@ -224,6 +230,10 @@ func findConfigFile(o *ConfigOptions) (string, FileType, error) {
 
 		for _, e := range entries {
 			filename := e.Name()
+
+			if strings.Contains(filename, "..") {
+				continue
+			}
 
 			if e.IsDir() || len(filename) < 4 || filename[0] == '.' {
 				continue

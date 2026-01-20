@@ -5,15 +5,7 @@
 
 package flags
 
-import (
-	"github.com/zauberhaus/config/pkg/index"
-)
-
 type FlagOptions struct {
-	Prefix   string
-	Strict   bool
-	Index    index.Index
-	Replacer map[string]string
 }
 
 type Option interface {
