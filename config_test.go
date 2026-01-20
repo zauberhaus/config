@@ -444,6 +444,19 @@ sub:
 		assert.True(t, os.IsNotExist(err))
 	})
 
+	t.Run("error on path traversal attempt", func(t *testing.T) {
+		_, _, err := config.Load[*TestLoadConfig](config.WithFile("../config.go"))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "path traversal attempt")
+	})
+
+	t.Run("error on path traversal attempt via env", func(t *testing.T) {
+		t.Setenv("CONFIG", "../config.go")
+		_, _, err := config.Load[*TestLoadConfig]()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "path traversal attempt")
+	})
+
 	t.Run("strict mode with unknown env var", func(t *testing.T) {
 		t.Setenv("MY_APP_UNKNOWN", "val")
 		_, _, err := config.Load[*TestLoadConfig](
