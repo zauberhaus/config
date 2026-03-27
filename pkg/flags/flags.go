@@ -16,11 +16,16 @@ import (
 	"github.com/zauberhaus/lookup"
 )
 
+type Secret interface {
+	Secret() any
+}
+
 type Flag struct {
 	fs         *pflag.FlagSet
 	flag       *pflag.Flag
 	parent     string
 	persistent bool
+	get        func() (any, error)
 }
 
 func (f *Flag) Name() string {
@@ -69,6 +74,10 @@ func (f *Flags) Flags() map[string]Flag {
 }
 
 func (f *Flags) BindCmdFlag(cmd *cobra.Command, target string, source string) error {
+	return f.BindCmdFlagFunc(cmd, target, source, nil)
+}
+
+func (f *Flags) BindCmdFlagFunc(cmd *cobra.Command, target string, source string, get func() (any, error)) error {
 	if len(target) == 0 {
 		return errors.New("empty target name")
 	}
@@ -113,12 +122,17 @@ func (f *Flags) BindCmdFlag(cmd *cobra.Command, target string, source string) er
 		flag:       flag,
 		parent:     parent,
 		persistent: persistent,
+		get:        get,
 	}
 
 	return nil
 }
 
 func (f *Flags) BindFlag(fs *pflag.FlagSet, target string, flag *pflag.Flag) error {
+	return f.BindFlagFunc(fs, target, flag, nil)
+}
+
+func (f *Flags) BindFlagFunc(fs *pflag.FlagSet, target string, flag *pflag.Flag, get func() (any, error)) error {
 
 	if len(target) == 0 {
 		return errors.New("empty target name")
@@ -132,12 +146,17 @@ func (f *Flags) BindFlag(fs *pflag.FlagSet, target string, flag *pflag.Flag) err
 	f.flags[target] = Flag{
 		fs:   fs,
 		flag: flag,
+		get:  get,
 	}
 
 	return nil
 }
 
 func (f *Flag) getValue() (any, error) {
+	if f.get != nil {
+		return f.get()
+	}
+
 	switch f.flag.Value.Type() {
 	case "string":
 		return f.fs.GetString(f.flag.Name)
@@ -187,6 +206,11 @@ func (f *Flag) getValue() (any, error) {
 }
 
 func SetFlags[T any](value T, f *Flags, options ...Option) error {
+	o := &FlagOptions{}
+	for _, opt := range options {
+		opt.Set(o)
+	}
+
 	for k, v := range f.flags {
 		if v.flag.Changed {
 			val, err := v.getValue()
