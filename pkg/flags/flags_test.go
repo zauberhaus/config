@@ -6,6 +6,7 @@
 package flags_test
 
 import (
+	"errors"
 	"net"
 	"reflect"
 	"testing"
@@ -478,4 +479,120 @@ func TestBindCmdFlag_EmptyTarget(t *testing.T) {
 	err := fl.BindCmdFlag(cmd, "", "src")
 	assert.Error(t, err)
 	assert.EqualError(t, err, "empty target name")
+}
+
+func TestFlags_BindFlagFunc(t *testing.T) {
+	t.Run("custom get function is used for Value", func(t *testing.T) {
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		fs.String("host", "default", "host")
+		flag := fs.Lookup("host")
+
+		fl := flags.NewFlagList(nil)
+		err := fl.BindFlagFunc(fs, "host", flag, func(val any) (any, error) {
+			return "custom-value", nil
+		})
+		require.NoError(t, err)
+
+		f := fl.Flags()["host"]
+		assert.Equal(t, "custom-value", f.Value())
+	})
+
+	t.Run("custom get function returning error causes panic", func(t *testing.T) {
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		fs.String("host", "default", "host")
+		flag := fs.Lookup("host")
+
+		fl := flags.NewFlagList(nil)
+		err := fl.BindFlagFunc(fs, "host", flag, func(val any) (any, error) {
+			return nil, errors.New("get error")
+		})
+		require.NoError(t, err)
+
+		f := fl.Flags()["host"]
+		assert.Panics(t, func() { _ = f.Value() })
+	})
+
+	t.Run("error on empty target", func(t *testing.T) {
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		fs.String("host", "default", "host")
+		flag := fs.Lookup("host")
+
+		fl := flags.NewFlagList(nil)
+		err := fl.BindFlagFunc(fs, "", flag, nil)
+		assert.EqualError(t, err, "empty target name")
+	})
+
+	t.Run("error on nil flag", func(t *testing.T) {
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		fl := flags.NewFlagList(nil)
+		err := fl.BindFlagFunc(fs, "host", nil, nil)
+		assert.EqualError(t, err, `flag "host" not found`)
+	})
+}
+
+func TestFlags_BindCmdFlagFunc(t *testing.T) {
+	newCmd := func() *cobra.Command {
+		cmd := &cobra.Command{Use: "test-cmd"}
+		cmd.PersistentFlags().String("source-flag", "default", "usage")
+		cmd.Flags().String("local-flag", "local-default", "usage")
+		return cmd
+	}
+
+	t.Run("custom get function is used for Value", func(t *testing.T) {
+		cmd := newCmd()
+		fl := flags.NewFlagList(nil)
+
+		err := fl.BindCmdFlagFunc(cmd, "my.target", "source-flag", func(val any) (any, error) {
+			return "custom-result", nil
+		})
+		require.NoError(t, err)
+
+		f := fl.Flags()["my.target"]
+		assert.Equal(t, "custom-result", f.Value())
+	})
+
+	t.Run("custom get function returning error causes panic", func(t *testing.T) {
+		cmd := newCmd()
+		fl := flags.NewFlagList(nil)
+
+		err := fl.BindCmdFlagFunc(cmd, "my.target", "source-flag", func(val any) (any, error) {
+			return nil, errors.New("get error")
+		})
+		require.NoError(t, err)
+
+		f := fl.Flags()["my.target"]
+		assert.Panics(t, func() { _ = f.Value() })
+	})
+
+	t.Run("nil get function falls back to flag value", func(t *testing.T) {
+		cmd := newCmd()
+		require.NoError(t, cmd.PersistentFlags().Set("source-flag", "flag-value"))
+		fl := flags.NewFlagList(nil)
+
+		err := fl.BindCmdFlagFunc(cmd, "my.target", "source-flag", nil)
+		require.NoError(t, err)
+
+		f := fl.Flags()["my.target"]
+		assert.Equal(t, "flag-value", f.Value())
+	})
+
+	t.Run("error on empty target", func(t *testing.T) {
+		cmd := newCmd()
+		fl := flags.NewFlagList(nil)
+		err := fl.BindCmdFlagFunc(cmd, "", "source-flag", nil)
+		assert.EqualError(t, err, "empty target name")
+	})
+
+	t.Run("error on nil command", func(t *testing.T) {
+		fl := flags.NewFlagList(nil)
+		err := fl.BindCmdFlagFunc(nil, "my.target", "source-flag", nil)
+		assert.EqualError(t, err, "bind command is nil")
+	})
+
+	t.Run("error when source flag not found", func(t *testing.T) {
+		cmd := newCmd()
+		fl := flags.NewFlagList(nil)
+		err := fl.BindCmdFlagFunc(cmd, "my.target", "non-existent", nil)
+		assert.Contains(t, err.Error(), "source flag not found: non-existent -> my.target")
+	})
 }
