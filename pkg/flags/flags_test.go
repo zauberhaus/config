@@ -488,7 +488,7 @@ func TestFlags_BindFlagFunc(t *testing.T) {
 		flag := fs.Lookup("host")
 
 		fl := flags.NewFlagList(nil)
-		err := fl.BindFlagFunc(fs, "host", flag, func() (any, error) {
+		err := fl.BindFlagFunc(fs, "host", flag, func(val any) (any, error) {
 			return "custom-value", nil
 		})
 		require.NoError(t, err)
@@ -503,7 +503,7 @@ func TestFlags_BindFlagFunc(t *testing.T) {
 		flag := fs.Lookup("host")
 
 		fl := flags.NewFlagList(nil)
-		err := fl.BindFlagFunc(fs, "host", flag, func() (any, error) {
+		err := fl.BindFlagFunc(fs, "host", flag, func(val any) (any, error) {
 			return nil, errors.New("get error")
 		})
 		require.NoError(t, err)
@@ -542,7 +542,7 @@ func TestFlags_BindCmdFlagFunc(t *testing.T) {
 		cmd := newCmd()
 		fl := flags.NewFlagList(nil)
 
-		err := fl.BindCmdFlagFunc(cmd, "my.target", "source-flag", func() (any, error) {
+		err := fl.BindCmdFlagFunc(cmd, "my.target", "source-flag", func(val any) (any, error) {
 			return "custom-result", nil
 		})
 		require.NoError(t, err)
@@ -555,7 +555,7 @@ func TestFlags_BindCmdFlagFunc(t *testing.T) {
 		cmd := newCmd()
 		fl := flags.NewFlagList(nil)
 
-		err := fl.BindCmdFlagFunc(cmd, "my.target", "source-flag", func() (any, error) {
+		err := fl.BindCmdFlagFunc(cmd, "my.target", "source-flag", func(val any) (any, error) {
 			return nil, errors.New("get error")
 		})
 		require.NoError(t, err)

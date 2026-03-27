@@ -25,7 +25,7 @@ type Flag struct {
 	flag       *pflag.Flag
 	parent     string
 	persistent bool
-	get        func() (any, error)
+	get        func(val any) (any, error)
 }
 
 func (f *Flag) Name() string {
@@ -77,7 +77,7 @@ func (f *Flags) BindCmdFlag(cmd *cobra.Command, target string, source string) er
 	return f.BindCmdFlagFunc(cmd, target, source, nil)
 }
 
-func (f *Flags) BindCmdFlagFunc(cmd *cobra.Command, target string, source string, get func() (any, error)) error {
+func (f *Flags) BindCmdFlagFunc(cmd *cobra.Command, target string, source string, get func(val any) (any, error)) error {
 	if len(target) == 0 {
 		return errors.New("empty target name")
 	}
@@ -132,7 +132,7 @@ func (f *Flags) BindFlag(fs *pflag.FlagSet, target string, flag *pflag.Flag) err
 	return f.BindFlagFunc(fs, target, flag, nil)
 }
 
-func (f *Flags) BindFlagFunc(fs *pflag.FlagSet, target string, flag *pflag.Flag, get func() (any, error)) error {
+func (f *Flags) BindFlagFunc(fs *pflag.FlagSet, target string, flag *pflag.Flag, get func(val any) (any, error)) error {
 
 	if len(target) == 0 {
 		return errors.New("empty target name")
@@ -154,7 +154,7 @@ func (f *Flags) BindFlagFunc(fs *pflag.FlagSet, target string, flag *pflag.Flag,
 
 func (f *Flag) getValue() (any, error) {
 	if f.get != nil {
-		return f.get()
+		return f.get(f.flag.Value)
 	}
 
 	switch f.flag.Value.Type() {
