@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.4](https://github.com/zauberhaus/config/compare/v1.0.3...v1.0.4) (2026-03-27)
+
+
+### Bug Fixes
+
+* add custom getter to flag ([e80aa98](https://github.com/zauberhaus/config/commit/e80aa9807abdffaa0abbcb9f8b0d70e223420a68))
+* add custom getter to flag ([a637915](https://github.com/zauberhaus/config/commit/a6379158f9bfe188a8b14ec8ddc8b148b0576a87))
+* improved getter function ([27ac369](https://github.com/zauberhaus/config/commit/27ac3698f7bbc946495a34ae0ae509ec14b103e0))
+
 ## [1.0.3](https://github.com/zauberhaus/config/compare/v1.0.2...v1.0.3) (2026-01-20)
 
 
