@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/zauberhaus/config/compare/v1.0.4...v1.1.0) (2026-04-24)
+
+
+### Features
+
+* add list env variables function ([91ea827](https://github.com/zauberhaus/config/commit/91ea8272629ade1397ee83d3ff5d0e42cd28ab9f))
+
 ## [1.0.4](https://github.com/zauberhaus/config/compare/v1.0.3...v1.0.4) (2026-03-27)
 
 
