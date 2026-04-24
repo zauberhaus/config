@@ -16,6 +16,54 @@ import (
 	"github.com/zauberhaus/lookup"
 )
 
+func List[T any](value T, options ...Option) (map[string]string, error) {
+	o := &EnvOptions{}
+
+	for _, opt := range options {
+		opt.Set(o)
+	}
+
+	if len(o.Index) == 0 {
+		d, err := index.New[T](o.Replacer)
+		if err != nil {
+			return nil, err
+		}
+
+		o.Index = d
+	}
+
+	m := make(map[string]string)
+
+	for k := range o.Index {
+		m[k] = ""
+	}
+
+	for _, envVar := range os.Environ() {
+		if i := strings.Index(envVar, "="); i >= 0 {
+			key := envVar[:i]
+			value := envVar[i+1:]
+
+			if len(o.Prefix) > 0 {
+				if !strings.HasPrefix(key, o.Prefix) {
+					continue
+				}
+
+				key = strings.TrimPrefix(key, o.Prefix)
+			}
+
+			key = strings.Trim(key, "_ \n\r\t")
+			key = strings.ToUpper(key)
+
+			if _, ok := o.Index.Find(key); ok {
+				value = strings.Trim(value, " \n\r\t")
+				m[key] = value
+			}
+		}
+	}
+
+	return m, nil
+}
+
 func Set[T any](value T, options ...Option) (T, error) {
 	o := &EnvOptions{}
 
