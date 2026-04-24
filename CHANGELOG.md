@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/zauberhaus/config/compare/v1.1.0...v1.1.1) (2026-04-24)
+
+
+### Bug Fixes
+
+* env list function with prefix ([0836fe1](https://github.com/zauberhaus/config/commit/0836fe1270cb20c18a59d44f7205dbcf6bc0e3a3))
+
 ## [1.1.0](https://github.com/zauberhaus/config/compare/v1.0.4...v1.1.0) (2026-04-24)
 
 
