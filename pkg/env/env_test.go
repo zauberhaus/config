@@ -139,21 +139,25 @@ func TestSetEnv_ListWithPrefix(t *testing.T) {
 	t.Setenv("APP_SERVER_HIDDEN", "123456")
 	t.Setenv("APP_SERVER_NAME", "my server")
 
+	name := "APP"
+	prefix := "APP_"
+
 	var cfg TestConfig
-	values, err := env.List(&cfg, env.WithName("APP"))
+	values, err := env.List(&cfg, env.WithName(name))
 	if assert.NoError(t, err) {
 		assert.Len(t, values, 22)
-		assert.Equal(t, "localhost", values["SERVER_HOST"])
-		assert.Equal(t, "8080", values["SERVER_PORT"])
-		assert.Equal(t, "admin", values["DB_USER"])
-		assert.Equal(t, "192.168.1.1,192.168.1.2", values["SERVER_WL"])
-		assert.Equal(t, "192.168.1.3", values["SERVER_WL[]"])
-		assert.Equal(t, "192.168.1.0", values["SERVER_WL[0]"])
-		assert.Equal(t, "192.168.1.99", values["SERVER_ROUTE[99]"])
-		assert.Equal(t, "my server", values["SERVER_NAME"])
+		assert.Equal(t, "localhost", values[prefix+"SERVER_HOST"])
+		assert.Equal(t, "8080", values[prefix+"SERVER_PORT"])
+		assert.Equal(t, "admin", values[prefix+"DB_USER"])
+		assert.Equal(t, "192.168.1.1,192.168.1.2", values[prefix+"SERVER_WL"])
+		assert.Equal(t, "192.168.1.3", values[prefix+"SERVER_WL[]"])
+		assert.Equal(t, "192.168.1.0", values[prefix+"SERVER_WL[0]"])
+		assert.Equal(t, "192.168.1.99", values[prefix+"SERVER_ROUTE[99]"])
+		assert.Equal(t, "my server", values[prefix+"SERVER_NAME"])
 		assert.NotContains(t, values, "OTHER_VAR")
-		assert.NotContains(t, values, "APP_SERVER_HOST")
+		assert.NotContains(t, values, "SERVER_HOST")
 		assert.NotContains(t, values, "SERVER_HIDDEN")
+		assert.NotContains(t, values, prefix+"SERVER_HIDDEN")
 	}
 }
 
