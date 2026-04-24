@@ -35,13 +35,14 @@ func List[T any](value T, options ...Option) (map[string]string, error) {
 	m := make(map[string]string)
 
 	for k := range o.Index {
-		m[k] = ""
+		m[o.Prefix+k] = ""
 	}
 
 	for _, envVar := range os.Environ() {
 		if i := strings.Index(envVar, "="); i >= 0 {
 			key := envVar[:i]
 			value := envVar[i+1:]
+			orig := key
 
 			if len(o.Prefix) > 0 {
 				if !strings.HasPrefix(key, o.Prefix) {
@@ -56,7 +57,7 @@ func List[T any](value T, options ...Option) (map[string]string, error) {
 
 			if _, ok := o.Index.Find(key); ok {
 				value = strings.Trim(value, " \n\r\t")
-				m[key] = value
+				m[orig] = value
 			}
 		}
 	}
