@@ -87,7 +87,7 @@ sub:
 	t.Run("load from json file in search path", func(t *testing.T) {
 		require.NoError(t, os.Chdir(tempDir))
 
-		cfg, f, err := config.Load[*TestLoadConfig](config.WithName("my-app"), config.WithExtension(".json", config.JSON))
+		cfg, f, err := config.Load[*TestLoadConfig](config.WithName("my-app"), config.WithExtension(".json", config.JSON), config.WithWorkingDir(true))
 		require.NoError(t, err)
 		assert.NotEmpty(t, f)
 
@@ -200,7 +200,7 @@ sub:
 			err = os.WriteFile(file, []byte(content), 0644)
 			require.NoError(t, err)
 
-			cfg, f, err := config.Load[*TestLoadConfig](config.WithName("sub2"))
+			cfg, f, err := config.Load[*TestLoadConfig](config.WithName("sub2"), config.WithWorkingDir(true))
 			require.NoError(t, err)
 			assert.NotEmpty(t, f)
 
@@ -466,12 +466,13 @@ sub:
 		assert.Error(t, err)
 	})
 
-	t.Run("no error on invalid default tag", func(t *testing.T) {
+	t.Run("error on invalid default tag", func(t *testing.T) {
 		type InvalidDefaultConfig struct {
 			Port int `default:"not-an-int"`
 		}
 		_, _, err := config.Load[*InvalidDefaultConfig]()
-		assert.NoError(t, err)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `invalid default "not-an-int"`)
 	})
 
 	t.Run("error on flag type mismatch", func(t *testing.T) {

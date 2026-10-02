@@ -9,6 +9,7 @@ import (
 	"net"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -268,7 +269,9 @@ func TestSetEnv_MalformedValueForInt(t *testing.T) {
 	var cfg TestConfig
 	_, err := env.Set(&cfg, env.WithName("APP"))
 	assert.Error(t, err)
-	assert.EqualError(t, err, "strconv.ParseInt: parsing \"not-an-int\": invalid syntax")
+	assert.EqualError(t, err, `env APP_SERVER_PORT: strconv.ParseInt: parsing "***": invalid syntax`)
+	assert.NotContains(t, err.Error(), "not-an-int")
+	assert.ErrorIs(t, err, strconv.ErrSyntax)
 }
 
 func TestSetEnv_KeyAndValueWithSpacesAndMixedCase(t *testing.T) {
@@ -358,4 +361,30 @@ func TestSetEnv_NonStruct(t *testing.T) {
 	var i int
 	_, err := env.Set(&i)
 	assert.NoError(t, err)
+}
+
+func TestEnv_IndexError(t *testing.T) {
+	type item struct {
+		Name string
+	}
+
+	type badConfig struct {
+		Items []item `env:"-"`
+	}
+
+	t.Run("List", func(t *testing.T) {
+		m, err := env.List(&badConfig{})
+		assert.Nil(t, m)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't skip slice, array or map")
+	})
+
+	t.Run("Set", func(t *testing.T) {
+		cfg := &badConfig{}
+
+		got, err := env.Set(cfg, env.WithName("bad"))
+		assert.Nil(t, got)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't skip slice, array or map")
+	})
 }

@@ -596,3 +596,30 @@ func TestFlags_BindCmdFlagFunc(t *testing.T) {
 		assert.Contains(t, err.Error(), "source flag not found: non-existent -> my.target")
 	})
 }
+
+// badIntValue claims to be an int flag but holds a value that is not a number.
+type badIntValue struct{}
+
+func (badIntValue) String() string   { return "not-a-number" }
+func (badIntValue) Set(string) error { return nil }
+func (badIntValue) Type() string     { return "int" }
+
+func TestSetFlags_ValueError(t *testing.T) {
+	type cfg struct {
+		Port int
+	}
+
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	fs.Var(badIntValue{}, "port", "port number")
+	require.NoError(t, fs.Set("port", "1"))
+
+	fl := flags.NewFlagList(nil)
+	require.NoError(t, fl.BindFlag(fs, "Port", fs.Lookup("port")))
+
+	c := &cfg{}
+	err := flags.SetFlags(c, fl)
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "not-a-number")
+	assert.Contains(t, err.Error(), "flag port: ")
+	assert.Zero(t, c.Port)
+}

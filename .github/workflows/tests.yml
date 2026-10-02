@@ -18,10 +18,10 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v6 
+      uses: actions/checkout@v7 
 
     - name: Setup go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version-file: "go.mod"
         check-latest: true
@@ -41,6 +41,7 @@ jobs:
         gocover-cobertura \
           -ignore-dirs '/generator$' \
           -ignore-dirs '^/tools' \
+          -ignore-files '_mock\.go$' \
           < coverage.txt > coverage.xml
 
     - name: Generate code coverage report
@@ -57,7 +58,7 @@ jobs:
         thresholds: '50 70'
 
     - name: Add Coverage PR Comment
-      uses: marocchino/sticky-pull-request-comment@v2
+      uses: marocchino/sticky-pull-request-comment@v3
       with:
         header: test
         recreate: true
