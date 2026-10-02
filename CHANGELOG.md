@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/zauberhaus/config/compare/v1.1.1...v1.2.0) (2026-10-02)
+
+
+### Features
+
+* add generic storage interface and upgrade dependencies ([75b2723](https://github.com/zauberhaus/config/commit/75b27238d9673b2f5a6864ff87f2e28a040de7d6))
+
+
+### Bug Fixes
+
+* CodeQL warnings ([832579c](https://github.com/zauberhaus/config/commit/832579c6b004f0f76c1a97ceb3dbe7e9f2475acc))
+
 ## [1.1.1](https://github.com/zauberhaus/config/compare/v1.1.0...v1.1.1) (2026-04-24)
 
 
