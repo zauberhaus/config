@@ -301,3 +301,106 @@ func TestIndex_Replacer(t *testing.T) {
 	assert.True(t, idx.Exists("BAZ_BAR"))
 	assert.False(t, idx.Exists("FOO_BAR"))
 }
+
+func TestIndex_SkipSliceError(t *testing.T) {
+	type item struct {
+		Name string
+	}
+
+	t.Run("skipped slice of structs", func(t *testing.T) {
+		type cfg struct {
+			Items []item `env:"-"`
+		}
+
+		_, err := index.New[cfg](nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't skip slice, array or map: items")
+	})
+
+	t.Run("skipped map of structs", func(t *testing.T) {
+		type cfg struct {
+			Items map[string]item `env:"-"`
+		}
+
+		_, err := index.New[cfg](nil)
+		assert.Error(t, err)
+	})
+
+	t.Run("skipped slice of scalars is fine", func(t *testing.T) {
+		type cfg struct {
+			Items []string `env:"-"`
+		}
+
+		idx, err := index.New[cfg](nil)
+		require.NoError(t, err)
+		assert.Empty(t, idx)
+	})
+
+	t.Run("error in a nested struct", func(t *testing.T) {
+		type cfg struct {
+			Inner struct {
+				Items []item `env:"-"`
+			}
+		}
+
+		_, err := index.New[cfg](nil)
+		assert.Error(t, err)
+	})
+
+	t.Run("error in a skipped slice of structs", func(t *testing.T) {
+		type cfg struct {
+			List []struct {
+				Items []item `env:"-"`
+			} `env:"-"`
+		}
+
+		_, err := index.New[cfg](nil)
+		assert.Error(t, err)
+	})
+
+	t.Run("error in the elements of a slice", func(t *testing.T) {
+		type cfg struct {
+			List []struct {
+				Items []item `env:"-"`
+			}
+		}
+
+		_, err := index.New[cfg](nil)
+		assert.Error(t, err)
+	})
+}
+
+func TestIndex_FindUnknown(t *testing.T) {
+	idx, err := index.New[IndexTestConfig](nil)
+	require.NoError(t, err)
+
+	path, ok := idx.Find("DOES_NOT_EXIST")
+	assert.False(t, ok)
+	assert.Empty(t, path)
+
+	path, ok = idx.Find("DB_TAGS[x]")
+	assert.True(t, ok)
+	assert.Equal(t, "db.tags[x]", path)
+}
+
+func TestIndex_SliceOfPointers(t *testing.T) {
+	type item struct {
+		Name string
+	}
+
+	type cfg struct {
+		Items []*item
+		IPs   []*net.IP
+	}
+
+	idx, err := index.New[cfg](nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, reflect.TypeFor[item](), idx["ITEMS[]"].Type)
+	assert.Equal(t, "items[]", idx["ITEMS[]"].Path)
+	assert.Equal(t, reflect.TypeFor[string](), idx["ITEMS[]_NAME"].Type)
+	assert.Equal(t, "items[].name", idx["ITEMS[]_NAME"].Path)
+
+	// *net.IP implements encoding.TextUnmarshaler, so it is a leaf.
+	assert.Equal(t, reflect.TypeFor[net.IP](), idx["IPS[]"].Type)
+}

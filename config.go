@@ -8,16 +8,20 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/creasty/defaults"
-	"github.com/stretchr/testify/assert/yaml"
 	"github.com/zauberhaus/config/pkg/env"
+	"github.com/zauberhaus/config/pkg/errors"
 	"github.com/zauberhaus/config/pkg/flags"
 	"github.com/zauberhaus/config/pkg/index"
 	"github.com/zauberhaus/lookup"
+	"go.yaml.in/yaml/v3"
 )
 
 var (
@@ -43,17 +47,21 @@ func Load[P ~*T, T any](options ...Option) (P, string, error) {
 		opt.Set(o)
 	}
 
+	// searched is true if the file was found by searching a directory; it is
+	// then read without following symlinks out of that directory.
+	searched := false
+
 	if o.File == "" {
-		f, ft, err := findConfigFile(o)
+		f, ft, s, err := findConfigFile(o)
 		if err != nil {
 			return nil, "", err
 		}
 
 		o.File = f
 		o.FileType = ft
-
+		searched = s
 	} else {
-		if strings.Contains(o.File, "..") {
+		if hasParentRef(o.File) {
 			return nil, "", fmt.Errorf("path traversal attempt: '%s'", o.File)
 		}
 
@@ -86,7 +94,7 @@ func Load[P ~*T, T any](options ...Option) (P, string, error) {
 	}
 
 	if len(o.File) > 0 {
-		data, err := os.ReadFile(o.File)
+		data, err := readConfigFile(o.File, searched, o.WorldWritable)
 		if err != nil {
 			return nil, o.File, err
 		}
@@ -154,6 +162,20 @@ func Load[P ~*T, T any](options ...Option) (P, string, error) {
 		}
 	}
 
+	if o.Storage != nil {
+		all, err := o.Storage.All()
+		if err != nil {
+			return nil, o.File, err
+		}
+
+		for k, v := range all {
+			_, err := lookup.Set(&cfg, k, v)
+			if err != nil {
+				return nil, o.File, errors.Wrap("storage", k, v, err)
+			}
+		}
+	}
+
 	if len(o.Name) > 0 {
 		_, err = env.Set(cfg, env.WithName(o.Name), env.WithStrict(o.Strict), env.WithIndex(o.Index))
 		if err != nil {
@@ -171,7 +193,9 @@ func Load[P ~*T, T any](options ...Option) (P, string, error) {
 	return cfg, o.File, nil
 }
 
-func findConfigFile(o *ConfigOptions) (string, FileType, error) {
+// findConfigFile returns the config file from $CONFIG or the first matching
+// file in the search directories, and whether it was found by searching.
+func findConfigFile(o *ConfigOptions) (string, FileType, bool, error) {
 	if len(o.Extensions) == 0 {
 		o.Extensions = extensions
 	}
@@ -182,35 +206,41 @@ func findConfigFile(o *ConfigOptions) (string, FileType, error) {
 
 	tmp := os.Getenv("CONFIG")
 	if tmp != "" {
-		if strings.Contains(tmp, "..") {
-			return "", UnknownFileType, fmt.Errorf("path traversal attempt: '%s'", tmp)
+		if hasParentRef(tmp) {
+			return "", UnknownFileType, false, fmt.Errorf("path traversal attempt: '%s'", tmp)
 		}
 		fp := filepath.Clean(tmp)
 
 		name, err := filepath.Abs(fp)
 		if err != nil {
-			return "", UnknownFileType, fmt.Errorf("invalid path '%s': %w", fp, err)
+			return "", UnknownFileType, false, fmt.Errorf("invalid path '%s': %w", fp, err)
 		}
 
 		ft := GetFileType(name, o.Extensions...)
 		if ft == UnknownFileType {
-			return "", UnknownFileType, fmt.Errorf("unknown file type: %s", name)
+			return "", UnknownFileType, false, fmt.Errorf("unknown file type: %s", name)
 		}
 
-		return name, ft, nil
+		return name, ft, false, nil
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", UnknownFileType, fmt.Errorf("get current index failed: %v", err)
-	}
+	paths := slices.Clone(o.Paths)
 
-	paths := append(o.Paths, cwd)
+	// The working directory is opt-in: a config file in an untrusted directory
+	// would otherwise silently change the settings of every tool run there.
+	if o.WorkingDir {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", UnknownFileType, false, fmt.Errorf("get current index failed: %v", err)
+		}
+
+		paths = append(paths, cwd)
+	}
 
 	// Find home index.
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", UnknownFileType, fmt.Errorf("get homedir failed: %v", err)
+		return "", UnknownFileType, false, fmt.Errorf("get homedir failed: %v", err)
 	}
 
 	paths = append(paths, home)
@@ -218,7 +248,7 @@ func findConfigFile(o *ConfigOptions) (string, FileType, error) {
 	for _, p := range paths {
 		fp, err := filepath.Abs(p)
 		if err != nil {
-			return "", UnknownFileType, fmt.Errorf("invalid path '%s': %w", fp, err)
+			return "", UnknownFileType, false, fmt.Errorf("invalid path '%s': %w", fp, err)
 		}
 
 		fp = filepath.Clean(fp)
@@ -230,10 +260,6 @@ func findConfigFile(o *ConfigOptions) (string, FileType, error) {
 
 		for _, e := range entries {
 			filename := e.Name()
-
-			if strings.Contains(filename, "..") {
-				continue
-			}
 
 			if e.IsDir() || len(filename) < 4 || filename[0] == '.' {
 				continue
@@ -254,11 +280,85 @@ func findConfigFile(o *ConfigOptions) (string, FileType, error) {
 				continue
 			}
 
-			return filepath.Join(fp, filename), ft, nil
+			return filepath.Join(fp, filename), ft, true, nil
 		}
 	}
 
-	return "", UnknownFileType, nil
+	return "", UnknownFileType, false, nil
+}
+
+// hasParentRef reports whether path contains a ".." element.
+func hasParentRef(path string) bool {
+	return slices.Contains(strings.Split(filepath.ToSlash(path), "/"), "..")
+}
+
+// readConfigFile reads a config file. A file found in a search directory is
+// opened in that directory as root, so a symlink can't point outside of it.
+// The file must be a regular file and, unless worldWritable is set, must not
+// be writable by others.
+func readConfigFile(name string, rooted bool, worldWritable bool) ([]byte, error) {
+	var (
+		stat = os.Stat
+		open = os.Open
+	)
+
+	if rooted {
+		root, err := os.OpenRoot(filepath.Dir(name))
+		if err != nil {
+			return nil, err
+		}
+
+		defer func() { _ = root.Close() }()
+
+		base := filepath.Base(name)
+		stat = func(string) (os.FileInfo, error) { return root.Stat(base) }
+		open = func(string) (*os.File, error) { return root.Open(base) }
+	}
+
+	// Check before opening: opening e.g. a FIFO would block.
+	fi, err := stat(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := checkConfigFile(name, fi, worldWritable); err != nil {
+		return nil, err
+	}
+
+	f, err := open(name)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { _ = f.Close() }()
+
+	// The file may have been replaced since the check.
+	ofi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	if !os.SameFile(fi, ofi) {
+		return nil, fmt.Errorf("config file %s changed while opening it", name)
+	}
+
+	if err := checkConfigFile(name, ofi, worldWritable); err != nil {
+		return nil, err
+	}
+
+	return io.ReadAll(f)
+}
+
+func checkConfigFile(name string, fi os.FileInfo, worldWritable bool) error {
+	if !fi.Mode().IsRegular() {
+		return fmt.Errorf("config file %s is not a regular file", name)
+	}
+
+	if !worldWritable && runtime.GOOS != "windows" && fi.Mode().Perm()&0o002 != 0 {
+		return fmt.Errorf("config file %s is writable by others (%v)", name, fi.Mode().Perm())
+	}
+
+	return nil
 }
 
 func GetFileType(name string, ext ...Extension) FileType {

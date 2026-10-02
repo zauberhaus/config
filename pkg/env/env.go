@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/zauberhaus/config/pkg/errors"
 	"github.com/zauberhaus/config/pkg/index"
 	"github.com/zauberhaus/lookup"
 )
@@ -82,10 +83,12 @@ func Set[T any](value T, options ...Option) (T, error) {
 	}
 
 	m := make(map[string]string)
+	names := make(map[string]string)
 	for _, envVar := range os.Environ() {
 		if i := strings.Index(envVar, "="); i >= 0 {
 			key := envVar[:i]
 			value := envVar[i+1:]
+			orig := key
 
 			if len(o.Prefix) > 0 {
 				if !strings.HasPrefix(key, o.Prefix) {
@@ -111,6 +114,7 @@ func Set[T any](value T, options ...Option) (T, error) {
 			value = strings.Trim(value, " \n\r\t")
 
 			m[key] = value
+			names[key] = orig
 		}
 	}
 
@@ -128,7 +132,7 @@ func Set[T any](value T, options ...Option) (T, error) {
 				}
 			}
 
-			return *new(T), err
+			return *new(T), errors.Wrap("env", names[k], v, err)
 		}
 	}
 

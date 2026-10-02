@@ -6,6 +6,7 @@
 
 -   **Multiple Configuration Sources**: Load settings from YAML and JSON files, environment variables, and command-line flags (primarily via `pflag`).
 -   **Structured Configuration**: Map configuration settings directly into Go structs, supporting default values defined via struct tags.
+-   **Pluggable Storage**: Merge values from any backend (database, key-value store, remote service) by implementing the small `Storage` interface.
 -   **Configuration Precedence**: A well-defined hierarchy ensures that configuration values are applied consistently.
 -   **Easy Integration**: Designed for seamless integration into existing Go applications, with explicit support for [cobra](https://github.com/spf13/cobra) and [pflag](https://github.com/spf13/pflag).
 
@@ -106,16 +107,99 @@ For more advanced usage, including integration with `pflag` and `cobra`, refer t
 -   [`examples/cobra`](./examples/cobra/README.md)
 -   [`examples/pflags`](./examples/pflags/README.md)
 
+## Config File Lookup
+
+`Load` reads at most one config file:
+
+1.  The file given with `config.WithFile`, or else
+2.  the file named by the `CONFIG` environment variable, or else
+3.  the first file named `<name>.json`, `<name>.yaml` or `<name>.yml` found in these directories, in this order:
+    1.  the directories given with `config.WithPaths`,
+    2.  the current working directory, **only** with `config.WithWorkingDir(true)`,
+    3.  the home directory.
+
+`<name>` is the name given with `config.WithName`, or `config` without one. `config.WithExtension` and `config.WithExtensions` change the accepted file extensions.
+
+The current working directory isn't searched by default. Otherwise a config file in any directory a tool is run from, such as a freshly cloned repository, would silently change its settings.
+
+### File checks
+
+-   Paths with a `..` element (e.g. `../app.yaml`) are rejected. Dots inside a name (`app..v2.yaml`) are fine.
+-   The config file must be a regular file.
+-   A file that is writable by others (e.g. mode `0666`) is rejected, unless `config.WithWorldWritable(true)` is set. This check is skipped on Windows.
+-   A file found in a search directory may be a symlink, but only to a file inside that directory. A file given with `WithFile` or `CONFIG` may point anywhere.
+
+### Values in error messages
+
+Values from environment variables, flags and storage can be secrets, so they are replaced with `***` in error messages, e.g. `env MY_APP_PORT: strconv.ParseInt: parsing "***": invalid syntax`. The original error is still available with `errors.As` as `*errors.Error` from `github.com/zauberhaus/config/pkg/errors`.
+
 ## Configuration Precedence
 
 When multiple configuration sources are defined, `config` resolves values based on a strict order of precedence, from lowest to highest:
 
-1.  **Default values in the struct**: Values specified using the `default:"value"` struct tag.
-2.  **Environment variables**: Values provided via environment variables (e.g., `APP_HOST`, `APP_PORT`).
-3.  **Configuration files**: Settings loaded from YAML files (e.g., `config.yaml`, `app.yaml`).
-4.  **Command-line flags**: Values passed as command-line arguments (e.g., `--host`, `-p`).
+1.  **Default values in the struct**: Values specified using the `default:"value"` struct tag. An invalid default (e.g. `default:"abc"` on an `int`) makes `Load` return an error.
+2.  **Configuration files**: Settings loaded from YAML or JSON files (e.g., `config.yaml`, `app.json`).
+3.  **Storage**: Values returned by a custom [`Storage`](#custom-storage) passed with `config.WithStorage`.
+4.  **Environment variables**: Values provided via environment variables (e.g., `MY_APP_HOST`, `MY_APP_PORT`).
+5.  **Command-line flags**: Values passed as command-line arguments (e.g., `--host`, `-P`) and bound with `flags.NewFlagList`.
 
-This order ensures that command-line flags always override environment variables, which in turn override configuration file settings, and finally, struct defaults provide a baseline.
+This order ensures that command-line flags always override environment variables, which in turn override storage and configuration file settings, and finally, struct defaults provide a baseline.
+
+## Custom Storage
+
+Use `config.WithStorage` to load values from a source other than a file, such as a database or a key-value store. A storage implements the `config.Storage` interface:
+
+```go
+type Storage interface {
+	All() (map[string]any, error)
+	Get(key string) (any, error)
+	Set(key string, val any) error
+}
+```
+
+`Load` calls `All()` once and applies every entry to the configuration struct. Keys are lower-case, dot-separated field paths (e.g. `host`, `sub.name`, `sub2.name`) and values must be assignable to the target field. `Load` returns an error if `All()` fails, if a key doesn't match a field, or if a value has the wrong type. `Get` and `Set` are not used by `Load`; they are there so the same storage can be used to read and persist individual settings.
+
+```go
+type MyConfig struct {
+	Host string `default:"localhost"`
+	Port int    `default:"3000"`
+	Sub  struct {
+		Name string
+	}
+}
+
+// memStorage is a minimal in-memory Storage.
+type memStorage map[string]any
+
+func (m memStorage) All() (map[string]any, error) { return m, nil }
+
+func (m memStorage) Get(key string) (any, error) {
+	v, ok := m[key]
+	if !ok {
+		return nil, fmt.Errorf("key not found: %s", key)
+	}
+	return v, nil
+}
+
+func (m memStorage) Set(key string, val any) error {
+	m[key] = val
+	return nil
+}
+
+func main() {
+	storage := memStorage{"host": "db.example.com", "sub.name": "from-storage"}
+
+	cfg, _, err := config.Load[*MyConfig](
+		config.WithName("my-app"),
+		config.WithStorage(storage),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(cfg.Host) // db.example.com (environment variables and flags still take precedence)
+}
+```
 
 ## License
 

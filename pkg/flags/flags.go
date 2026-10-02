@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	config_errors "github.com/zauberhaus/config/pkg/errors"
 	"github.com/zauberhaus/config/pkg/index"
 	"github.com/zauberhaus/lookup"
 )
@@ -215,12 +216,12 @@ func SetFlags[T any](value T, f *Flags, options ...Option) error {
 		if v.flag.Changed {
 			val, err := v.getValue()
 			if err != nil {
-				return err
+				return config_errors.Wrap("flag", v.flag.Name, v.flag.Value.String(), err)
 			}
 
 			_, err = lookup.Set(value, k, val)
 			if err != nil {
-				return err
+				return config_errors.Wrap("flag", v.flag.Name, val, err)
 			}
 		}
 	}
