@@ -9,6 +9,7 @@
 package config
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
@@ -39,18 +40,18 @@ func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 }
 
 // All mocks base method.
-func (m *MockStorage) All() (map[string]any, error) {
+func (m *MockStorage) All(ctx context.Context) (map[string]any, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "All")
+	ret := m.ctrl.Call(m, "All", ctx)
 	ret0, _ := ret[0].(map[string]any)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // All indicates an expected call of All.
-func (mr *MockStorageMockRecorder) All() *MockStorageAllCall {
+func (mr *MockStorageMockRecorder) All(ctx any) *MockStorageAllCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "All", reflect.TypeOf((*MockStorage)(nil).All))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "All", reflect.TypeOf((*MockStorage)(nil).All), ctx)
 	return &MockStorageAllCall{Call: call}
 }
 
@@ -66,29 +67,29 @@ func (c *MockStorageAllCall) Return(arg0 map[string]any, arg1 error) *MockStorag
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageAllCall) Do(f func() (map[string]any, error)) *MockStorageAllCall {
+func (c *MockStorageAllCall) Do(f func(context.Context) (map[string]any, error)) *MockStorageAllCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageAllCall) DoAndReturn(f func() (map[string]any, error)) *MockStorageAllCall {
+func (c *MockStorageAllCall) DoAndReturn(f func(context.Context) (map[string]any, error)) *MockStorageAllCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Delete mocks base method.
-func (m *MockStorage) Delete(key string) error {
+func (m *MockStorage) Delete(ctx context.Context, key string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", key)
+	ret := m.ctrl.Call(m, "Delete", ctx, key)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockStorageMockRecorder) Delete(key any) *MockStorageDeleteCall {
+func (mr *MockStorageMockRecorder) Delete(ctx, key any) *MockStorageDeleteCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStorage)(nil).Delete), key)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStorage)(nil).Delete), ctx, key)
 	return &MockStorageDeleteCall{Call: call}
 }
 
@@ -104,30 +105,30 @@ func (c *MockStorageDeleteCall) Return(arg0 error) *MockStorageDeleteCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageDeleteCall) Do(f func(string) error) *MockStorageDeleteCall {
+func (c *MockStorageDeleteCall) Do(f func(context.Context, string) error) *MockStorageDeleteCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageDeleteCall) DoAndReturn(f func(string) error) *MockStorageDeleteCall {
+func (c *MockStorageDeleteCall) DoAndReturn(f func(context.Context, string) error) *MockStorageDeleteCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Get mocks base method.
-func (m *MockStorage) Get(key string) (any, error) {
+func (m *MockStorage) Get(ctx context.Context, key string) (any, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", key)
+	ret := m.ctrl.Call(m, "Get", ctx, key)
 	ret0, _ := ret[0].(any)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockStorageMockRecorder) Get(key any) *MockStorageGetCall {
+func (mr *MockStorageMockRecorder) Get(ctx, key any) *MockStorageGetCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStorage)(nil).Get), key)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStorage)(nil).Get), ctx, key)
 	return &MockStorageGetCall{Call: call}
 }
 
@@ -143,29 +144,29 @@ func (c *MockStorageGetCall) Return(arg0 any, arg1 error) *MockStorageGetCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageGetCall) Do(f func(string) (any, error)) *MockStorageGetCall {
+func (c *MockStorageGetCall) Do(f func(context.Context, string) (any, error)) *MockStorageGetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageGetCall) DoAndReturn(f func(string) (any, error)) *MockStorageGetCall {
+func (c *MockStorageGetCall) DoAndReturn(f func(context.Context, string) (any, error)) *MockStorageGetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Set mocks base method.
-func (m *MockStorage) Set(key string, val any) error {
+func (m *MockStorage) Set(ctx context.Context, key string, val any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Set", key, val)
+	ret := m.ctrl.Call(m, "Set", ctx, key, val)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Set indicates an expected call of Set.
-func (mr *MockStorageMockRecorder) Set(key, val any) *MockStorageSetCall {
+func (mr *MockStorageMockRecorder) Set(ctx, key, val any) *MockStorageSetCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockStorage)(nil).Set), key, val)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockStorage)(nil).Set), ctx, key, val)
 	return &MockStorageSetCall{Call: call}
 }
 
@@ -181,13 +182,13 @@ func (c *MockStorageSetCall) Return(arg0 error) *MockStorageSetCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageSetCall) Do(f func(string, any) error) *MockStorageSetCall {
+func (c *MockStorageSetCall) Do(f func(context.Context, string, any) error) *MockStorageSetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageSetCall) DoAndReturn(f func(string, any) error) *MockStorageSetCall {
+func (c *MockStorageSetCall) DoAndReturn(f func(context.Context, string, any) error) *MockStorageSetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

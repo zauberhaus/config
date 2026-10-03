@@ -55,6 +55,16 @@ func TestLoad_FindConfigFile(t *testing.T) {
 		assert.Equal(t, "real.host.com", cfg.Host)
 	})
 
+	t.Run("ignores files with an unknown extension", func(t *testing.T) {
+		noise := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(noise, "find-app.txt"), []byte(`{"host": "txt"}`), 0644))
+
+		cfg, f, err := config.Load[*TestLoadConfig](config.WithName("find-app"), config.WithPaths(noise))
+		require.NoError(t, err)
+		assert.Empty(t, f) // not picked up, defaults are used
+		assert.Equal(t, "localhost", cfg.Host)
+	})
+
 	t.Run("skips search paths that can't be read", func(t *testing.T) {
 		real := t.TempDir()
 		want := filepath.Join(real, "find-app.yaml")
@@ -259,6 +269,18 @@ func TestLoad_FileChecks(t *testing.T) {
 
 		_, _, err := config.Load[*TestLoadConfig](config.WithFile(file))
 		assert.ErrorContains(t, err, "is not a regular file")
+	})
+
+	t.Run("unreadable file is an error", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("root can read any file")
+		}
+
+		file := writeFile(t, t.TempDir(), "unreadable-app.json", 0o000)
+
+		cfg, _, err := config.Load[*TestLoadConfig](config.WithFile(file))
+		assert.Nil(t, cfg)
+		assert.ErrorIs(t, err, os.ErrPermission)
 	})
 
 	t.Run("symlink inside the search directory is followed", func(t *testing.T) {

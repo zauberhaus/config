@@ -7,6 +7,8 @@
 
 package config
 
+import "context"
+
 type FileType int
 type Extension struct {
 	Name     string
@@ -20,8 +22,8 @@ const (
 )
 
 type Storage interface {
-	All() (map[string]any, error)
-	Get(key string) (any, error)
-	Set(key string, val any) error
-	Delete(key string) error
+	All(ctx context.Context) (map[string]any, error)
+	Get(ctx context.Context, key string) (any, error)
+	Set(ctx context.Context, key string, val any) error
+	Delete(ctx context.Context, key string) error
 }

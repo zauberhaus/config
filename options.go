@@ -6,6 +6,8 @@
 package config
 
 import (
+	"context"
+
 	"github.com/zauberhaus/config/pkg/flags"
 	"github.com/zauberhaus/config/pkg/index"
 )
@@ -24,6 +26,8 @@ type ConfigOptions struct {
 
 	WorkingDir    bool
 	WorldWritable bool
+
+	ctx context.Context
 }
 
 type Option interface {
@@ -136,6 +140,12 @@ func WithWorkingDir(val bool) Option {
 func WithWorldWritable(val bool) Option {
 	return optionFunc(func(o *ConfigOptions) {
 		o.WorldWritable = val
+	})
+}
+
+func WithContext(val context.Context) Option {
+	return optionFunc(func(o *ConfigOptions) {
+		o.ctx = val
 	})
 }
 

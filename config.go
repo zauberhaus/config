@@ -6,6 +6,7 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -45,6 +46,10 @@ func Load[P ~*T, T any](options ...Option) (P, string, error) {
 	o := &ConfigOptions{}
 	for _, opt := range options {
 		opt.Set(o)
+	}
+
+	if o.ctx == nil {
+		o.ctx = context.Background()
 	}
 
 	// searched is true if the file was found by searching a directory; it is
@@ -163,7 +168,7 @@ func Load[P ~*T, T any](options ...Option) (P, string, error) {
 	}
 
 	if o.Storage != nil {
-		all, err := o.Storage.All()
+		all, err := o.Storage.All(o.ctx)
 		if err != nil {
 			return nil, o.File, err
 		}
