@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/zauberhaus/config/compare/v1.2.1...v1.3.0) (2026-10-03)
+
+
+### Features
+
+* add support for context in Load and storage interface ([70268a1](https://github.com/zauberhaus/config/commit/70268a12c841f042df935b1ef604b9216591d1fa))
+
+
+### Bug Fixes
+
+* remove push from release script ([32df4a6](https://github.com/zauberhaus/config/commit/32df4a6795da0c2ecfcee76ff7e70b9069725c69))
+
 ## [1.2.1](https://github.com/zauberhaus/config/compare/v1.2.0...v1.2.1) (2026-10-03)
 
 
