@@ -23,4 +23,5 @@ type Storage interface {
 	All() (map[string]any, error)
 	Get(key string) (any, error)
 	Set(key string, val any) error
+	Delete(key string) error
 }
