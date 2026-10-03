@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/zauberhaus/config/compare/v1.2.0...v1.2.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* add delete to storage interface ([99eb3c3](https://github.com/zauberhaus/config/commit/99eb3c346ba6e16f3391ccc9d9bc0fed27d9dd0e))
+
 ## [1.2.0](https://github.com/zauberhaus/config/compare/v1.1.1...v1.2.0) (2026-10-02)
 
 
