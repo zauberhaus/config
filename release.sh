@@ -3,7 +3,8 @@
 # Release the current branch (normally dev) into main.
 #
 #   1. Runs go generate and all tests (tests.sh); everything must be committed.
-#   2. Pushes the branch and opens a PR into main (or reuses the open one).
+#   2. Checks that all commits are pushed (it never pushes) and opens a PR
+#      into main (or reuses the open one).
 #   3. Waits for the PR checks, then merges it with a merge commit.
 #   4. Follows the Release Check workflow that the merge triggers on main.
 #      release-please then opens the release PR, which the workflow merges.
@@ -132,10 +133,12 @@ log "Running all tests"
 "$(dirname "$0")/tests.sh"
 [ -z "$(git status --porcelain)" ] || { git status --short >&2; die "the tests changed files; commit them first"; }
 
-if [ "$(git rev-parse HEAD)" != "$(git rev-parse --verify --quiet "origin/$HEAD_BRANCH" || true)" ]; then
-  log "Pushing $HEAD_BRANCH"
-  git push --set-upstream origin "$HEAD_BRANCH"
+# The script never pushes; every commit must already be on the remote.
+if ! git rev-parse --verify --quiet "origin/$HEAD_BRANCH" >/dev/null; then
+  die "$HEAD_BRANCH does not exist on origin; push it first"
 fi
+UNPUSHED=$(git rev-list --count "origin/$HEAD_BRANCH..HEAD")
+[ "$UNPUSHED" -eq 0 ] || die "$UNPUSHED commit(s) of $HEAD_BRANCH are not pushed; push them first"
 
 PR=$(gh pr list --head "$HEAD_BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')
 if [ -n "$PR" ]; then
