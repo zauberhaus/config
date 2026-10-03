@@ -17,6 +17,7 @@ words:
   - gobeam
   - gocover
   - GOFILE
+  - gomock
   - GOPACKAGE
   - gotest
   - gotestfmt

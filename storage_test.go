@@ -3,9 +3,12 @@
 // Zauberhaus licenses this file to you under the Apache 2.0 License.
 // See the LICENSE file in the project root for more information.
 
+// cspell:words	noctx
+
 package config_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -35,7 +38,7 @@ func newMemStorage(data map[string]any) *memStorage {
 	return &memStorage{data: data}
 }
 
-func (m *memStorage) All() (map[string]any, error) {
+func (m *memStorage) All(_ context.Context) (map[string]any, error) {
 	if m.allErr != nil {
 		return nil, m.allErr
 	}
@@ -43,7 +46,7 @@ func (m *memStorage) All() (map[string]any, error) {
 	return m.data, nil
 }
 
-func (m *memStorage) Get(key string) (any, error) {
+func (m *memStorage) Get(_ context.Context, key string) (any, error) {
 	v, ok := m.data[key]
 	if !ok {
 		return nil, fmt.Errorf("key not found: %s", key)
@@ -52,7 +55,7 @@ func (m *memStorage) Get(key string) (any, error) {
 	return v, nil
 }
 
-func (m *memStorage) Set(key string, val any) error {
+func (m *memStorage) Set(_ context.Context, key string, val any) error {
 	if m.setErr != nil {
 		return m.setErr
 	}
@@ -62,13 +65,25 @@ func (m *memStorage) Set(key string, val any) error {
 	return nil
 }
 
+func (m *memStorage) Delete(_ context.Context, key string) error {
+	if m.setErr != nil {
+		return m.setErr
+	}
+
+	delete(m.data, key)
+
+	return nil
+}
+
 func TestStorage_Interface(t *testing.T) {
+	ctx := t.Context()
+
 	t.Run("set and get", func(t *testing.T) {
 		var s config.Storage = newMemStorage(nil)
 
-		require.NoError(t, s.Set("host", "example.com"))
+		require.NoError(t, s.Set(ctx, "host", "example.com"))
 
-		v, err := s.Get("host")
+		v, err := s.Get(ctx, "host")
 		require.NoError(t, err)
 		assert.Equal(t, "example.com", v)
 	})
@@ -76,16 +91,16 @@ func TestStorage_Interface(t *testing.T) {
 	t.Run("get missing key", func(t *testing.T) {
 		var s config.Storage = newMemStorage(nil)
 
-		_, err := s.Get("missing")
+		_, err := s.Get(ctx, "missing")
 		assert.Error(t, err)
 	})
 
 	t.Run("set overwrites", func(t *testing.T) {
 		var s config.Storage = newMemStorage(map[string]any{"port": 1})
 
-		require.NoError(t, s.Set("port", 2))
+		require.NoError(t, s.Set(ctx, "port", 2))
 
-		v, err := s.Get("port")
+		v, err := s.Get(ctx, "port")
 		require.NoError(t, err)
 		assert.Equal(t, 2, v)
 	})
@@ -93,10 +108,10 @@ func TestStorage_Interface(t *testing.T) {
 	t.Run("all returns every entry", func(t *testing.T) {
 		var s config.Storage = newMemStorage(nil)
 
-		require.NoError(t, s.Set("host", "a"))
-		require.NoError(t, s.Set("port", 1))
+		require.NoError(t, s.Set(ctx, "host", "a"))
+		require.NoError(t, s.Set(ctx, "port", 1))
 
-		all, err := s.All()
+		all, err := s.All(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, map[string]any{"host": "a", "port": 1}, all)
 	})
@@ -106,9 +121,9 @@ func TestStorage_Interface(t *testing.T) {
 		m.allErr = errors.New("all failed")
 		m.setErr = errors.New("set failed")
 
-		_, err := m.All()
+		_, err := m.All(ctx)
 		assert.EqualError(t, err, "all failed")
-		assert.EqualError(t, m.Set("k", "v"), "set failed")
+		assert.EqualError(t, m.Set(ctx, "k", "v"), "set failed")
 	})
 }
 
@@ -235,7 +250,7 @@ func TestLoad_StorageMock(t *testing.T) {
 		s := config.NewMockStorage(ctrl)
 
 		// Get and Set have no expectation: any call fails the test.
-		s.EXPECT().All().Return(map[string]any{"host": "mock.host.com", "sub.name": "mock-sub"}, nil).Times(1)
+		s.EXPECT().All(gomock.Any()).Return(map[string]any{"host": "mock.host.com", "sub.name": "mock-sub"}, nil).Times(1)
 
 		cfg, _, err := config.Load[*TestLoadConfig](config.WithName("mock-once"), config.WithStorage(s))
 		require.NoError(t, err)
@@ -252,7 +267,7 @@ func TestLoad_StorageMock(t *testing.T) {
 		hosts := []string{"first.host.com", "second.host.com"}
 		calls := 0
 
-		s.EXPECT().All().DoAndReturn(func() (map[string]any, error) {
+		s.EXPECT().All(gomock.Any()).DoAndReturn(func(context.Context) (map[string]any, error) {
 			h := hosts[calls]
 			calls++
 
@@ -270,7 +285,7 @@ func TestLoad_StorageMock(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		s := config.NewMockStorage(ctrl)
 
-		s.EXPECT().All().Return(nil, nil)
+		s.EXPECT().All(gomock.Any()).Return(nil, nil)
 
 		cfg, _, err := config.Load[*TestLoadConfig](config.WithName("mock-nil"), config.WithStorage(s))
 		require.NoError(t, err)
@@ -282,7 +297,7 @@ func TestLoad_StorageMock(t *testing.T) {
 		s := config.NewMockStorage(ctrl)
 
 		boom := errors.New("storage unavailable")
-		s.EXPECT().All().Return(nil, boom)
+		s.EXPECT().All(gomock.Any()).Return(nil, boom)
 
 		cfg, _, err := config.Load[*TestLoadConfig](config.WithName("mock-err"), config.WithStorage(s))
 		assert.Nil(t, cfg)
@@ -293,11 +308,66 @@ func TestLoad_StorageMock(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		s := config.NewMockStorage(ctrl)
 
-		s.EXPECT().All().Return(map[string]any{"does.not.exist": "x"}, nil)
+		s.EXPECT().All(gomock.Any()).Return(map[string]any{"does.not.exist": "x"}, nil)
 
 		cfg, _, err := config.Load[*TestLoadConfig](config.WithName("mock-invalid"), config.WithStorage(s))
 		assert.Nil(t, cfg)
 		assert.Error(t, err)
+	})
+
+	t.Run("WithContext passes the context to the storage", func(t *testing.T) {
+		type key struct{}
+
+		ctrl := gomock.NewController(t)
+		s := config.NewMockStorage(ctrl)
+
+		ctx := context.WithValue(context.Background(), key{}, "marker")
+
+		s.EXPECT().All(ctx).Return(map[string]any{"host": "ctx.host.com"}, nil)
+
+		cfg, _, err := config.Load[*TestLoadConfig](config.WithName("mock-ctx"), config.WithStorage(s), config.WithContext(ctx))
+		require.NoError(t, err)
+		assert.Equal(t, "ctx.host.com", cfg.Host)
+	})
+
+	t.Run("a background context is used by default", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		s := config.NewMockStorage(ctrl)
+
+		s.EXPECT().All(gomock.Not(gomock.Nil())).DoAndReturn(func(ctx context.Context) (map[string]any, error) {
+			assert.NoError(t, ctx.Err())
+
+			return nil, nil
+		})
+
+		_, _, err := config.Load[*TestLoadConfig](config.WithName("mock-noctx"), config.WithStorage(s))
+		require.NoError(t, err)
+	})
+
+	t.Run("a nil context falls back to a background context", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		s := config.NewMockStorage(ctrl)
+
+		s.EXPECT().All(gomock.Not(gomock.Nil())).Return(nil, nil)
+
+		_, _, err := config.Load[*TestLoadConfig](config.WithName("mock-nilctx"), config.WithStorage(s), config.WithContext(nil)) //nolint:staticcheck // nil is the case under test
+		require.NoError(t, err)
+	})
+
+	t.Run("a canceled context is seen by the storage", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		s := config.NewMockStorage(ctrl)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		s.EXPECT().All(gomock.Any()).DoAndReturn(func(ctx context.Context) (map[string]any, error) {
+			return nil, ctx.Err()
+		})
+
+		cfg, _, err := config.Load[*TestLoadConfig](config.WithName("mock-canceled"), config.WithStorage(s), config.WithContext(ctx))
+		assert.Nil(t, cfg)
+		assert.ErrorIs(t, err, context.Canceled)
 	})
 
 	t.Run("the last WithStorage option wins", func(t *testing.T) {
@@ -306,7 +376,7 @@ func TestLoad_StorageMock(t *testing.T) {
 		second := config.NewMockStorage(ctrl)
 
 		// first has no expectation: it must not be called.
-		second.EXPECT().All().Return(map[string]any{"host": "second.host.com"}, nil)
+		second.EXPECT().All(gomock.Any()).Return(map[string]any{"host": "second.host.com"}, nil)
 
 		cfg, _, err := config.Load[*TestLoadConfig](
 			config.WithName("mock-last"),
