@@ -2,11 +2,12 @@
 #
 # Release the current branch (normally dev) into main.
 #
-#   1. Pushes the branch and opens a PR into main (or reuses the open one).
-#   2. Waits for the PR checks, then merges it with a merge commit.
-#   3. Follows the Release Check workflow that the merge triggers on main.
+#   1. Runs go generate and all tests (tests.sh); everything must be committed.
+#   2. Pushes the branch and opens a PR into main (or reuses the open one).
+#   3. Waits for the PR checks, then merges it with a merge commit.
+#   4. Follows the Release Check workflow that the merge triggers on main.
 #      release-please then opens the release PR, which the workflow merges.
-#   4. Waits for the new GitHub release to appear and prints its version.
+#   5. Waits for the new GitHub release to appear and prints its version.
 #
 # With -v the workflow is additionally dispatched to force that version.
 #
@@ -111,7 +112,7 @@ HEAD_BRANCH=$(git branch --show-current)
 [ -n "$HEAD_BRANCH" ] || die "detached HEAD; check out the branch to release"
 [ "$HEAD_BRANCH" != "$BASE" ] || die "already on $BASE; check out the branch to release"
 
-[ -z "$(git status --porcelain --untracked-files=no)" ] || die "uncommitted changes; commit or stash them first"
+[ -z "$(git status --porcelain)" ] || die "uncommitted changes; commit or stash them first"
 
 git fetch --quiet origin
 if [ -n "$VERSION" ] && [ -n "$(git ls-remote --tags origin "refs/tags/v$VERSION")" ]; then
@@ -122,6 +123,14 @@ RELEASE_BEFORE=$(latest_release)
 
 AHEAD=$(git rev-list --count "origin/$BASE..HEAD")
 [ "$AHEAD" -gt 0 ] || die "$HEAD_BRANCH has no commits that are not already in $BASE"
+
+log "Generating code"
+go generate ./...
+[ -z "$(git status --porcelain)" ] || { git status --short >&2; die "go generate changed files; commit them first"; }
+
+log "Running all tests"
+"$(dirname "$0")/tests.sh"
+[ -z "$(git status --porcelain)" ] || { git status --short >&2; die "the tests changed files; commit them first"; }
 
 if [ "$(git rev-parse HEAD)" != "$(git rev-parse --verify --quiet "origin/$HEAD_BRANCH" || true)" ]; then
   log "Pushing $HEAD_BRANCH"

@@ -77,6 +77,44 @@ func (c *MockStorageAllCall) DoAndReturn(f func() (map[string]any, error)) *Mock
 	return c
 }
 
+// Delete mocks base method.
+func (m *MockStorage) Delete(key string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", key)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockStorageMockRecorder) Delete(key any) *MockStorageDeleteCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStorage)(nil).Delete), key)
+	return &MockStorageDeleteCall{Call: call}
+}
+
+// MockStorageDeleteCall wrap *gomock.Call
+type MockStorageDeleteCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageDeleteCall) Return(arg0 error) *MockStorageDeleteCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageDeleteCall) Do(f func(string) error) *MockStorageDeleteCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageDeleteCall) DoAndReturn(f func(string) error) *MockStorageDeleteCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Get mocks base method.
 func (m *MockStorage) Get(key string) (any, error) {
 	m.ctrl.T.Helper()

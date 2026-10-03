@@ -62,6 +62,16 @@ func (m *memStorage) Set(key string, val any) error {
 	return nil
 }
 
+func (m *memStorage) Delete(key string) error {
+	if m.setErr != nil {
+		return m.setErr
+	}
+
+	delete(m.data, key)
+
+	return nil
+}
+
 func TestStorage_Interface(t *testing.T) {
 	t.Run("set and get", func(t *testing.T) {
 		var s config.Storage = newMemStorage(nil)
