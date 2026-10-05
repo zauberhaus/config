@@ -3,12 +3,16 @@
 // Zauberhaus licenses this file to you under the Apache 2.0 License.
 // See the LICENSE file in the project root for more information.
 
+// cspell:words maxconns
+
 package flags_test
 
 import (
 	"errors"
+	"maps"
 	"net"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -622,4 +626,168 @@ func TestSetFlags_ValueError(t *testing.T) {
 	assert.NotContains(t, err.Error(), "not-a-number")
 	assert.Contains(t, err.Error(), "flag port: ")
 	assert.Zero(t, c.Port)
+}
+
+func TestFromCommand(t *testing.T) {
+	type Sub struct {
+		Name string
+	}
+
+	type Config struct {
+		Host     string
+		Port     int
+		MaxConns int `flag:"max-conns"`
+		Timeout  time.Duration
+		Started  time.Time
+		Renamed  string `env:"ALIAS"`
+		Sub      Sub
+		Tags     []string
+	}
+
+	dict, err := index.New[Config](nil)
+	require.NoError(t, err)
+
+	newCmd := func() (*cobra.Command, *cobra.Command) {
+		root := &cobra.Command{Use: "root"}
+		root.PersistentFlags().String("host", "", "")
+
+		child := &cobra.Command{Use: "child", Run: func(*cobra.Command, []string) {}}
+		child.PersistentFlags().Int("port", 0, "")
+		child.Flags().Int("max-conns", 0, "") // named by the flag tag
+		child.Flags().Duration("timeout", 0, "")
+		child.Flags().String("started", "", "")
+		child.Flags().String("renamed", "", "")
+		child.Flags().String("sub-name", "", "")
+		child.Flags().String("sub", "", "")
+		child.Flags().StringSlice("tags", nil, "")
+		child.Flags().String("config", "", "")
+		root.AddCommand(child)
+
+		return root, child
+	}
+
+	t.Run("binds matching flags", func(t *testing.T) {
+		_, child := newCmd()
+
+		fl, err := flags.FromCommand(child, dict)
+		require.NoError(t, err)
+
+		got := fl.Flags()
+		flag := func(name string) *flags.Flag {
+			f, ok := got[name]
+			require.True(t, ok, "flag for %s not bound", name)
+			return &f
+		}
+
+		// the keys are field paths: lower-cased field names, as lookup.Set expects them
+		assert.ElementsMatch(t,
+			[]string{"host", "port", "maxconns", "timeout", "started", "renamed", "sub.name", "tags"},
+			slices.Collect(maps.Keys(got)))
+
+		assert.Equal(t, "max-conns", flag("maxconns").Name())
+		assert.Equal(t, "sub-name", flag("sub.name").Name())
+		assert.True(t, flag("host").IsPersistent()) // inherited from root
+		assert.True(t, flag("port").IsPersistent())
+		assert.False(t, flag("timeout").IsPersistent())
+		assert.Equal(t, "child", flag("host").Parent())
+	})
+
+	t.Run("skips flags without a field and struct fields", func(t *testing.T) {
+		_, child := newCmd()
+
+		fl, err := flags.FromCommand(child, dict)
+		require.NoError(t, err)
+
+		assert.NotContains(t, fl.Flags(), "config")
+		assert.NotContains(t, fl.Flags(), "sub")
+	})
+
+	t.Run("sets the config from the command line", func(t *testing.T) {
+		root, child := newCmd()
+
+		fl, err := flags.FromCommand(child, dict)
+		require.NoError(t, err)
+
+		root.SetArgs([]string{"child", "--host", "h.example.com", "--max-conns", "7", "--sub-name", "s", "--tags", "a,b", "--timeout", "3s", "--started", "2026-01-02T03:04:05Z"})
+		require.NoError(t, root.Execute())
+
+		var cfg Config
+		require.NoError(t, flags.SetFlags(&cfg, fl))
+
+		assert.Equal(t, "h.example.com", cfg.Host)
+		assert.Equal(t, 7, cfg.MaxConns)
+		assert.Equal(t, "s", cfg.Sub.Name)
+		assert.Equal(t, []string{"a", "b"}, cfg.Tags)
+		assert.Equal(t, 3*time.Second, cfg.Timeout)
+		assert.Equal(t, time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC), cfg.Started)
+		assert.Equal(t, 0, cfg.Port) // not changed
+	})
+
+	t.Run("an explicit binding is kept", func(t *testing.T) {
+		_, child := newCmd()
+		child.Flags().String("address", "", "")
+
+		fl := flags.NewFlagList(dict)
+		require.NoError(t, fl.BindCmdFlag(child, "host", "address"))
+		require.NoError(t, fl.BindCmdFlags(child))
+
+		host := fl.Flags()["host"]
+		assert.Equal(t, "address", host.Name())
+	})
+
+	t.Run("errors", func(t *testing.T) {
+		_, child := newCmd()
+
+		_, err := flags.FromCommand(nil, dict)
+		assert.EqualError(t, err, "bind command is nil")
+
+		_, err = flags.FromCommand(child, nil)
+		assert.EqualError(t, err, "an index is required to bind flags by name")
+	})
+}
+
+func TestFromCommand_FlagTag(t *testing.T) {
+	type Config struct {
+		Host   string `flag:"addr"`
+		Port   int    `flag:"-"`
+		Secret string `flag:"-"`
+		Sub    struct {
+			Name string `flag:"title"`
+		}
+		Plain string
+	}
+
+	dict, err := index.New[Config](nil)
+	require.NoError(t, err)
+
+	cmd := &cobra.Command{Use: "app", Run: func(*cobra.Command, []string) {}}
+	cmd.Flags().String("addr", "", "")
+	cmd.Flags().String("host", "", "") // the field name, overridden by the tag
+	cmd.Flags().Int("port", 0, "")
+	cmd.Flags().String("sub-name", "", "")
+	cmd.Flags().String("title", "", "")
+	cmd.Flags().String("plain", "", "")
+
+	fl, err := flags.FromCommand(cmd, dict)
+	require.NoError(t, err)
+
+	got := fl.Flags()
+	assert.ElementsMatch(t, []string{"host", "sub.name", "plain"}, slices.Collect(maps.Keys(got)))
+
+	host := got["host"]
+	assert.Equal(t, "addr", host.Name())
+
+	name := got["sub.name"]
+	assert.Equal(t, "title", name.Name())
+
+	cmd.SetArgs([]string{"--addr", "a.example.com", "--host", "ignored", "--port", "1", "--title", "t", "--plain", "p"})
+	require.NoError(t, cmd.Execute())
+
+	var cfg Config
+	require.NoError(t, flags.SetFlags(&cfg, fl))
+
+	assert.Equal(t, "a.example.com", cfg.Host)
+	assert.Equal(t, 0, cfg.Port) // flag:"-"
+	assert.Equal(t, "t", cfg.Sub.Name)
+	assert.Equal(t, "p", cfg.Plain)
 }

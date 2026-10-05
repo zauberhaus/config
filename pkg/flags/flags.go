@@ -6,8 +6,10 @@
 package flags
 
 import (
+	"encoding"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -16,6 +18,8 @@ import (
 	"github.com/zauberhaus/config/pkg/index"
 	"github.com/zauberhaus/lookup"
 )
+
+var textUnmarshaler = reflect.TypeFor[encoding.TextUnmarshaler]()
 
 type Secret interface {
 	Secret() any
@@ -127,6 +131,111 @@ func (f *Flags) BindCmdFlagFunc(cmd *cobra.Command, target string, source string
 	}
 
 	return nil
+}
+
+// FromCommand creates a flag list for dict and binds all flags of cmd that
+// match a config field (see BindCmdFlags).
+func FromCommand(cmd *cobra.Command, dict index.Index) (*Flags, error) {
+	f := NewFlagList(dict)
+	if err := f.BindCmdFlags(cmd); err != nil {
+		return nil, err
+	}
+
+	return f, nil
+}
+
+// BindCmdFlags binds every flag of cmd, including the persistent flags
+// inherited from its parents, whose name matches a field in the index. The
+// name is matched like the environment variable of the field, with dashes
+// instead of underscores (--sub-name sets Sub.Name), or as the field path
+// (--sub.name). A flag tag on the field overrides the name: with
+// `flag:"addr"` only --addr sets the field, with `flag:"-"` no flag does.
+// Flags without a matching field, such as --config, are skipped, as are
+// fields that are already bound and struct fields.
+func (f *Flags) BindCmdFlags(cmd *cobra.Command) error {
+	if cmd == nil {
+		return errors.New("bind command is nil")
+	}
+
+	if len(f.dict) == 0 {
+		return errors.New("an index is required to bind flags by name")
+	}
+
+	sets := []struct {
+		fs         *pflag.FlagSet
+		persistent bool
+	}{
+		{cmd.PersistentFlags(), true},
+		{cmd.LocalNonPersistentFlags(), false},
+		{cmd.InheritedFlags(), true},
+	}
+
+	for _, s := range sets {
+		s.fs.VisitAll(func(flag *pflag.Flag) {
+			target, ok := f.findTarget(flag.Name)
+			if !ok {
+				return
+			}
+
+			if _, ok := f.flags[target]; ok {
+				return
+			}
+
+			f.flags[target] = Flag{
+				fs:         s.fs,
+				flag:       flag,
+				parent:     cmd.Use,
+				persistent: s.persistent,
+			}
+		})
+	}
+
+	return nil
+}
+
+// findTarget returns the field path for a flag name, or false if there is no
+// field with that name that can be set by a flag. A field with a flag tag is
+// only found by the name in the tag, and never if the tag is "-".
+func (f *Flags) findTarget(name string) (string, bool) {
+	item, ok := f.lookup(name)
+	if !ok || item.Flag == "-" {
+		return "", false
+	}
+
+	if item.Flag != "" && item.Flag != name {
+		return "", false
+	}
+
+	// a struct can't be set from a single flag, unless it parses text like time.Time
+	if item.Type.Kind() == reflect.Struct && !reflect.PointerTo(item.Type).Implements(textUnmarshaler) {
+		return "", false
+	}
+
+	return item.Path, true
+}
+
+// lookup finds the index item for a flag name: by the flag tag first, then
+// like the environment variable with dashes instead of underscores, and
+// finally by the field path.
+func (f *Flags) lookup(name string) (index.Item, bool) {
+	for _, v := range f.dict {
+		if v.Flag == name {
+			return v, true
+		}
+	}
+
+	if v, ok := f.dict[strings.ToUpper(strings.ReplaceAll(name, "-", "_"))]; ok {
+		return v, true
+	}
+
+	path := strings.ToLower(name)
+	for _, v := range f.dict {
+		if v.Path == path {
+			return v, true
+		}
+	}
+
+	return index.Item{}, false
 }
 
 func (f *Flags) BindFlag(fs *pflag.FlagSet, target string, flag *pflag.Flag) error {
