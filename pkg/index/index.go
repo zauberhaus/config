@@ -28,6 +28,7 @@ type Item struct {
 	Path     string
 	Type     reflect.Type
 	Optional bool
+	Flag     string
 }
 
 type Index map[string]Item
@@ -43,7 +44,25 @@ func New[T any](d map[string]string) (Index, error) {
 		return nil, nil
 	}
 
-	return collect(v, nil, nil, false, d)
+	m, err := collect(v, nil, nil, false, d)
+	if err != nil {
+		return m, err
+	}
+
+	flags := map[string]string{}
+	for _, item := range m {
+		if item.Flag == "" || item.Flag == "-" {
+			continue
+		}
+
+		if p, ok := flags[item.Flag]; ok && p != item.Path {
+			return nil, fmt.Errorf("flag %q is used by %s and %s", item.Flag, min(p, item.Path), max(p, item.Path))
+		}
+
+		flags[item.Flag] = item.Path
+	}
+
+	return m, nil
 }
 
 func (v Index) String() string {
@@ -229,10 +248,20 @@ func collect(v reflect.Type, tag []string, path []string, skip bool, d map[strin
 
 					tag := append(tag, SnakeCase(env))
 					path := append(path, strings.ToLower(field.Name))
+					fieldPath := strings.Join(path, ".") // collect appends [] to path for slices
 
 					tmp, err := collect(field.Type, tag, path, false, d)
 					if err != nil {
 						return tmp, err
+					}
+
+					if flag := field.Tag.Get("flag"); flag != "" {
+						for k, item := range tmp {
+							if item.Path == fieldPath {
+								item.Flag = flag
+								tmp[k] = item
+							}
+						}
 					}
 
 					maps.Insert(m, maps.All(tmp))

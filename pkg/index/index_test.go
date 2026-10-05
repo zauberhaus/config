@@ -3,6 +3,8 @@
 // Zauberhaus licenses this file to you under the Apache 2.0 License.
 // See the LICENSE file in the project root for more information.
 
+// cspell:words ptrfield
+
 package index_test
 
 import (
@@ -403,4 +405,51 @@ func TestIndex_SliceOfPointers(t *testing.T) {
 
 	// *net.IP implements encoding.TextUnmarshaler, so it is a leaf.
 	assert.Equal(t, reflect.TypeFor[net.IP](), idx["IPS[]"].Type)
+}
+
+func TestIndex_FlagTag(t *testing.T) {
+	t.Run("tag is stored on the field item", func(t *testing.T) {
+		type Config struct {
+			Host string   `flag:"addr"`
+			Port int      `flag:"-"`
+			Tags []string `flag:"tag"`
+			Sub  struct {
+				Name string `flag:"sub-title"`
+			}
+			Plain string
+		}
+
+		dict, err := index.New[Config](nil)
+		require.NoError(t, err)
+
+		assert.Equal(t, "addr", dict["HOST"].Flag)
+		assert.Equal(t, "-", dict["PORT"].Flag)
+		assert.Equal(t, "tag", dict["TAGS"].Flag)
+		assert.Empty(t, dict["TAGS[]"].Flag) // only the field itself, not its elements
+		assert.Equal(t, "sub-title", dict["SUB_NAME"].Flag)
+		assert.Empty(t, dict["SUB"].Flag)
+		assert.Empty(t, dict["PLAIN"].Flag)
+	})
+
+	t.Run("duplicate flag name is an error", func(t *testing.T) {
+		type Config struct {
+			Host string `flag:"addr"`
+			Sub  struct {
+				Addr string `flag:"addr"`
+			}
+		}
+
+		_, err := index.New[Config](nil)
+		assert.EqualError(t, err, `flag "addr" is used by host and sub.addr`)
+	})
+
+	t.Run("several fields may opt out", func(t *testing.T) {
+		type Config struct {
+			Host string `flag:"-"`
+			Port int    `flag:"-"`
+		}
+
+		_, err := index.New[Config](nil)
+		assert.NoError(t, err)
+	})
 }

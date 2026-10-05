@@ -344,13 +344,13 @@ func TestLoad_StorageMock(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("a nil context falls back to a background context", func(t *testing.T) {
+	t.Run("a TODO context is passed to the storage", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		s := config.NewMockStorage(ctrl)
 
-		s.EXPECT().All(gomock.Not(gomock.Nil())).Return(nil, nil)
+		s.EXPECT().All(context.TODO()).Return(nil, nil)
 
-		_, _, err := config.Load[*TestLoadConfig](config.WithName("mock-nilctx"), config.WithStorage(s), config.WithContext(nil)) //nolint:staticcheck // nil is the case under test
+		_, _, err := config.Load[*TestLoadConfig](config.WithName("mock-todo-ctx"), config.WithStorage(s), config.WithContext(context.TODO()))
 		require.NoError(t, err)
 	})
 
