@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/zauberhaus/config/compare/v1.3.0...v1.4.0) (2026-10-05)
+
+
+### Features
+
+* flags from cobra command ([7bb4847](https://github.com/zauberhaus/config/commit/7bb4847d5909d5908251dfef20110d310ec53f76))
+
 ## [1.3.0](https://github.com/zauberhaus/config/compare/v1.2.1...v1.3.0) (2026-10-03)
 
 
