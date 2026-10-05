@@ -15,8 +15,9 @@ The application can be configured through a configuration file, environment vari
 
 | Name | Type   | Default     | Description             | Flag                | Environment Variable |
 |------|--------|-------------|-------------------------|---------------------|----------------------|
-| Host | string | "localhost" | The host to connect to. | `--host`, `-d`      | `APP_HOST`           |
+| Host | string | "localhost" | The host to connect to. | `--server`, `-s`    | `APP_HOST`           |
 | Port | int    | 3000        | The port to connect to. | `--port`, `-p`      | `APP_PORT`           |
+| Level | Level | "info"     | The log level (`debug`, `info`, `warn`, `error`). | `--level`, `-l` | `APP_LEVEL` |
 
 ### Configuration Files
 
@@ -33,6 +34,7 @@ port: 8080
 ```yaml
 host: "alternate.cobra.host"
 port: 5678
+level: "warn"
 ```
 
 ## Usage Examples
@@ -45,16 +47,35 @@ $ go run main.go
 Configuration loaded from: config.yaml
 Host: localhost
 Port: 8080
+Level: info
 ```
 
 ### Using Flags
 You can override configuration values with flags. Flags have the highest precedence.
 
 ```sh
-$ go run main.go --host "flag.host" --port 1234
+$ go run main.go --server "flag.host" --port 1234
 Configuration loaded from: config.yaml
 Host: flag.host
 Port: 1234
+Level: info
+```
+
+### Using a Custom Flag Type
+`--level` is a custom flag: `Level` implements `pflag.Value` (`String`, `Set`, `Type`) and is registered with `cmd.Flags().VarP`.
+It is bound by name like any other flag; because the flag variable has the type of the field, `flags.FromCommand` sets the field with the value directly instead of parsing its text.
+Because `Level` also implements `encoding.TextUnmarshaler`, the same names work in the config file, in `APP_LEVEL` and in the `default` tag.
+Invalid values are rejected by the flag parser.
+
+```sh
+$ go run main.go --level warn
+Configuration loaded from: config.yaml
+Host: localhost
+Port: 8080
+Level: warn
+
+$ go run main.go --level verbose
+Error: invalid argument "verbose" for "-l, --level" flag: unknown level "verbose" (one of debug, info, warn, error)
 ```
 
 ### Using Environment Variables
@@ -65,6 +86,7 @@ $ APP_PORT=9999 go run main.go
 Configuration loaded from: config.yaml
 Host: localhost
 Port: 9999
+Level: info
 ```
 
 ### Using an Alternate Configuration File via Flag
@@ -75,6 +97,7 @@ $ go run main.go -c alternate_config.yaml
 Configuration loaded from: alternate_config.yaml
 Host: alternate.cobra.host
 Port: 5678
+Level: warn
 ```
 
 ### Using an Alternate Configuration File via Environment Variable
@@ -85,12 +108,13 @@ $ CONFIG_FILE=alternate_config.yaml go run main.go
 Configuration loaded from: alternate_config.yaml
 Host: alternate.cobra.host
 Port: 5678
+Level: warn
 ```
 
 ### Precedence
 The configuration is loaded in the following order of precedence (from lowest to highest):
 
-1.  **Default values in the struct:** `Host: "localhost"`, `Port: 3000`
+1.  **Default values in the struct:** `Host: "localhost"`, `Port: 3000`, `Level: info`
 2.  **Configuration file:** (e.g., `config.yaml`)
 3.  **Environment variables:** (e.g., `APP_PORT`)
-4.  **Flags:** (e.g., `--host`)
+4.  **Flags:** (e.g., `--server`)

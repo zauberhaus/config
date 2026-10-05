@@ -1,2 +1,3 @@
 host: "alternate.cobra.host"
 port: 5678
+level: "warn"
