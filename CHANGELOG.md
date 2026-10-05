@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/zauberhaus/config/compare/v1.4.0...v1.4.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* add support for custom flags ([d539643](https://github.com/zauberhaus/config/commit/d539643a76545f74851ccbf8d4ece8ecd4023d23))
+
 ## [1.4.0](https://github.com/zauberhaus/config/compare/v1.3.0...v1.4.0) (2026-10-05)
 
 
