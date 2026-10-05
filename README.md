@@ -141,7 +141,7 @@ When multiple configuration sources are defined, `config` resolves values based 
 2.  **Configuration files**: Settings loaded from YAML or JSON files (e.g., `config.yaml`, `app.json`).
 3.  **Storage**: Values returned by a custom [`Storage`](#custom-storage) passed with `config.WithStorage`.
 4.  **Environment variables**: Values provided via environment variables (e.g., `MY_APP_HOST`, `MY_APP_PORT`).
-5.  **Command-line flags**: Values passed as command-line arguments (e.g., `--host`, `-P`) and bound one by one with `flags.NewFlagList` and `BindCmdFlag`, or all at once by name with `flags.FromCommand(cmd, idx)`: every flag whose name matches a field (`--host` → `Host`, `--sub-name` → `Sub.Name`) is bound, other flags are skipped. A `flag` tag overrides the name: with `flag:"addr"` only `--addr` sets the field, with `flag:"-"` no flag is bound to it by name.
+5.  **Command-line flags**: Values passed as command-line arguments (e.g., `--host`, `-P`) and bound one by one with `flags.NewFlagList` and `BindCmdFlag`, or all at once by name with `flags.FromCommand(cmd, idx)`: every flag whose name matches a field (`--host` → `Host`, `--sub-name` → `Sub.Name`) is bound, other flags are skipped. A `flag` tag overrides the name: with `flag:"addr"` only `--addr` sets the field, with `flag:"-"` no flag is bound to it by name. A custom `pflag.Value` (e.g. an enum registered with `cmd.Flags().Var`) whose variable has the type of the field sets the field directly; otherwise its `String()` is parsed into the field.
 
 This order ensures that command-line flags always override environment variables, which in turn override storage and configuration file settings, and finally, struct defaults provide a baseline.
 

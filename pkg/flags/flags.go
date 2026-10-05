@@ -31,6 +31,7 @@ type Flag struct {
 	parent     string
 	persistent bool
 	get        func(val any) (any, error)
+	typ        reflect.Type
 }
 
 func (f *Flag) Name() string {
@@ -128,6 +129,7 @@ func (f *Flags) BindCmdFlagFunc(cmd *cobra.Command, target string, source string
 		parent:     parent,
 		persistent: persistent,
 		get:        get,
+		typ:        f.fieldType(target),
 	}
 
 	return nil
@@ -151,7 +153,9 @@ func FromCommand(cmd *cobra.Command, dict index.Index) (*Flags, error) {
 // (--sub.name). A flag tag on the field overrides the name: with
 // `flag:"addr"` only --addr sets the field, with `flag:"-"` no flag does.
 // Flags without a matching field, such as --config, are skipped, as are
-// fields that are already bound and struct fields.
+// fields that are already bound and struct fields. A custom pflag.Value that
+// points to a value of the field's type (an enum, a struct) sets the field
+// with that value instead of parsing its String().
 func (f *Flags) BindCmdFlags(cmd *cobra.Command) error {
 	if cmd == nil {
 		return errors.New("bind command is nil")
@@ -172,20 +176,21 @@ func (f *Flags) BindCmdFlags(cmd *cobra.Command) error {
 
 	for _, s := range sets {
 		s.fs.VisitAll(func(flag *pflag.Flag) {
-			target, ok := f.findTarget(flag.Name)
+			item, ok := f.findTarget(flag)
 			if !ok {
 				return
 			}
 
-			if _, ok := f.flags[target]; ok {
+			if _, ok := f.flags[item.Path]; ok {
 				return
 			}
 
-			f.flags[target] = Flag{
+			f.flags[item.Path] = Flag{
 				fs:         s.fs,
 				flag:       flag,
 				parent:     cmd.Use,
 				persistent: s.persistent,
+				typ:        item.Type,
 			}
 		})
 	}
@@ -193,25 +198,38 @@ func (f *Flags) BindCmdFlags(cmd *cobra.Command) error {
 	return nil
 }
 
-// findTarget returns the field path for a flag name, or false if there is no
-// field with that name that can be set by a flag. A field with a flag tag is
-// only found by the name in the tag, and never if the tag is "-".
-func (f *Flags) findTarget(name string) (string, bool) {
+// findTarget returns the index item for a flag, or false if there is no field
+// with its name that can be set by the flag. A field with a flag tag is only
+// found by the name in the tag, and never if the tag is "-".
+func (f *Flags) findTarget(flag *pflag.Flag) (index.Item, bool) {
+	name := flag.Name
+
 	item, ok := f.lookup(name)
 	if !ok || item.Flag == "-" {
-		return "", false
+		return index.Item{}, false
 	}
 
 	if item.Flag != "" && item.Flag != name {
-		return "", false
+		return index.Item{}, false
 	}
 
-	// a struct can't be set from a single flag, unless it parses text like time.Time
-	if item.Type.Kind() == reflect.Struct && !reflect.PointerTo(item.Type).Implements(textUnmarshaler) {
-		return "", false
+	// a struct can't be set from a single flag, unless it parses text like
+	// time.Time or the flag holds the struct itself (a pflag.Value)
+	if item.Type.Kind() == reflect.Struct && !reflect.PointerTo(item.Type).Implements(textUnmarshaler) && valueOf(flag.Value, item.Type) == nil {
+		return index.Item{}, false
 	}
 
-	return item.Path, true
+	return item, true
+}
+
+func (f *Flags) fieldType(path string) reflect.Type {
+	for _, v := range f.dict {
+		if v.Path == path {
+			return v.Type
+		}
+	}
+
+	return nil
 }
 
 // lookup finds the index item for a flag name: by the flag tag first, then
@@ -311,8 +329,21 @@ func (f *Flag) getValue() (any, error) {
 	case "ip":
 		return f.fs.GetIP(f.flag.Name)
 	default:
+		if v := valueOf(f.flag.Value, f.typ); v != nil {
+			return v, nil
+		}
+
 		return f.flag.Value.String(), nil
 	}
+}
+
+func valueOf(value pflag.Value, typ reflect.Type) any {
+	v := reflect.ValueOf(value)
+	if typ == nil || v.Kind() != reflect.Pointer || v.IsNil() || v.Type().Elem() != typ {
+		return nil
+	}
+
+	return v.Elem().Interface()
 }
 
 func SetFlags[T any](value T, f *Flags, options ...Option) error {

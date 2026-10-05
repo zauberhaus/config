@@ -791,3 +791,131 @@ func TestFromCommand_FlagTag(t *testing.T) {
 	assert.Equal(t, "t", cfg.Sub.Name)
 	assert.Equal(t, "p", cfg.Plain)
 }
+
+// level is an enum flag: its String() is a name, not the number it holds.
+type level int
+
+var levelNames = []string{"debug", "info", "warn"}
+
+func (l *level) String() string { return levelNames[*l] }
+func (l *level) Type() string   { return "level" }
+func (l *level) Set(s string) error {
+	i := slices.Index(levelNames, s)
+	if i < 0 {
+		return errors.New("unknown level")
+	}
+
+	*l = level(i)
+
+	return nil
+}
+
+// endpoint is a struct flag in the form host:port.
+type endpoint struct {
+	Host string
+	Port string
+}
+
+func (e *endpoint) String() string { return e.Host + ":" + e.Port }
+func (e *endpoint) Type() string   { return "endpoint" }
+func (e *endpoint) Set(s string) error {
+	host, port, err := net.SplitHostPort(s)
+	if err != nil {
+		return err
+	}
+
+	e.Host, e.Port = host, port
+
+	return nil
+}
+
+func TestFromCommand_ValueFlags(t *testing.T) {
+	type Config struct {
+		Level    level
+		MaxLevel *level
+		Name     string
+		Endpoint endpoint
+	}
+
+	dict, err := index.New[Config](nil)
+	require.NoError(t, err)
+
+	newCmd := func() *cobra.Command {
+		cmd := &cobra.Command{Use: "app", Run: func(*cobra.Command, []string) {}}
+
+		var lvl, maxLvl, name level
+		var ep endpoint
+
+		cmd.Flags().Var(&lvl, "level", "")
+		cmd.Flags().Var(&maxLvl, "max-level", "")
+		cmd.Flags().Var(&name, "name", "") // the field is a string: String() is used
+		cmd.Flags().Var(&ep, "endpoint", "")
+
+		return cmd
+	}
+
+	t.Run("custom values are set with their type", func(t *testing.T) {
+		cmd := newCmd()
+
+		fl, err := flags.FromCommand(cmd, dict)
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []string{"level", "maxlevel", "name", "endpoint"}, slices.Collect(maps.Keys(fl.Flags())))
+
+		cmd.SetArgs([]string{"--level", "warn", "--max-level", "info", "--name", "debug", "--endpoint", "db:5432"})
+		require.NoError(t, cmd.Execute())
+
+		var cfg Config
+		require.NoError(t, flags.SetFlags(&cfg, fl))
+
+		assert.Equal(t, level(2), cfg.Level)
+		if assert.NotNil(t, cfg.MaxLevel) {
+			assert.Equal(t, level(1), *cfg.MaxLevel)
+		}
+		assert.Equal(t, "debug", cfg.Name)
+		assert.Equal(t, endpoint{Host: "db", Port: "5432"}, cfg.Endpoint)
+	})
+
+	t.Run("the config doesn't share the flag's variable", func(t *testing.T) {
+		cmd := newCmd()
+
+		fl, err := flags.FromCommand(cmd, dict)
+		require.NoError(t, err)
+
+		cmd.SetArgs([]string{"--max-level", "info"})
+		require.NoError(t, cmd.Execute())
+
+		var cfg Config
+		require.NoError(t, flags.SetFlags(&cfg, fl))
+
+		require.NoError(t, cmd.Flags().Set("max-level", "warn"))
+		assert.Equal(t, level(1), *cfg.MaxLevel)
+	})
+
+	t.Run("BindCmdFlag knows the field type", func(t *testing.T) {
+		cmd := newCmd()
+
+		fl := flags.NewFlagList(dict)
+		require.NoError(t, fl.BindCmdFlag(cmd, "Level", "level"))
+
+		cmd.SetArgs([]string{"--level", "info"})
+		require.NoError(t, cmd.Execute())
+
+		var cfg Config
+		require.NoError(t, flags.SetFlags(&cfg, fl))
+		assert.Equal(t, level(1), cfg.Level)
+	})
+
+	t.Run("without an index String() is used", func(t *testing.T) {
+		cmd := newCmd()
+
+		fl := flags.NewFlagList(nil)
+		require.NoError(t, fl.BindCmdFlag(cmd, "Level", "level"))
+
+		cmd.SetArgs([]string{"--level", "info"})
+		require.NoError(t, cmd.Execute())
+
+		var cfg Config
+		err := flags.SetFlags(&cfg, fl)
+		assert.ErrorContains(t, err, "flag level")
+	})
+}
