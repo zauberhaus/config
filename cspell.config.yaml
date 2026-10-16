@@ -9,6 +9,7 @@ words:
   - ALLCAPS
   - alllower
   - apiurl
+  - autobinding
   - boumenot
   - coverprofile
   - creasty
@@ -23,7 +24,9 @@ words:
   - gotestfmt
   - gotesttools
   - irongut
+  - isgomock
   - marocchino
+  - maxlevel
   - mitchellh
   - mockgen
   - myhost
@@ -35,5 +38,6 @@ words:
   - strconv
   - stretchr
   - testhost
+  - unpushed
   - verylongname
   - Zauberhaus

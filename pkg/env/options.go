@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/zauberhaus/config/pkg/index"
+	"github.com/zauberhaus/lookup"
 )
 
 type EnvOptions struct {
@@ -16,6 +17,15 @@ type EnvOptions struct {
 	Strict   bool
 	Index    index.Index
 	Replacer map[string]string
+	Hooks    []lookup.ParserHook
+}
+
+// WithParserHooks parses the values into types the parser doesn't know, such
+// as an interface type.
+func WithParserHooks(hooks ...lookup.ParserHook) Option {
+	return optionFunc(func(o *EnvOptions) {
+		o.Hooks = append(o.Hooks, hooks...)
+	})
 }
 
 type Option interface {

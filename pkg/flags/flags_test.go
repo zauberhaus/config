@@ -919,3 +919,77 @@ func TestFromCommand_ValueFlags(t *testing.T) {
 		assert.ErrorContains(t, err, "flag level")
 	})
 }
+
+func TestFromCommand_VarPFlags(t *testing.T) {
+	type Config struct {
+		Host    string
+		Port    int
+		Timeout time.Duration
+		Tags    []string
+		Debug   bool
+		Level   level
+	}
+
+	dict, err := index.New[Config](nil)
+	require.NoError(t, err)
+
+	// flags bound to local variables, as with the typed ...VarP functions
+	newCmd := func() *cobra.Command {
+		var (
+			host    string
+			port    int
+			timeout time.Duration
+			tags    []string
+			debug   bool
+			lvl     level
+		)
+
+		cmd := &cobra.Command{Use: "app", Run: func(*cobra.Command, []string) {}}
+		cmd.Flags().StringVarP(&host, "host", "H", "flag-default", "")
+		cmd.Flags().IntVarP(&port, "port", "p", 1, "")
+		cmd.Flags().DurationVarP(&timeout, "timeout", "t", time.Minute, "")
+		cmd.Flags().StringSliceVarP(&tags, "tags", "g", []string{"x"}, "")
+		cmd.Flags().BoolVarP(&debug, "debug", "d", false, "")
+		cmd.Flags().VarP(&lvl, "level", "l", "")
+
+		return cmd
+	}
+
+	t.Run("shorthand flags are set", func(t *testing.T) {
+		cmd := newCmd()
+
+		fl, err := flags.FromCommand(cmd, dict)
+		require.NoError(t, err)
+		assert.Len(t, fl.Flags(), 6)
+
+		cmd.SetArgs([]string{"-H", "h.example.com", "-p", "7", "-t", "2s", "-g", "a,b", "-d", "-l", "warn"})
+		require.NoError(t, cmd.Execute())
+
+		var cfg Config
+		require.NoError(t, flags.SetFlags(&cfg, fl))
+
+		assert.Equal(t, Config{
+			Host:    "h.example.com",
+			Port:    7,
+			Timeout: 2 * time.Second,
+			Tags:    []string{"a", "b"},
+			Debug:   true,
+			Level:   level(2),
+		}, cfg)
+	})
+
+	t.Run("flag defaults are not applied", func(t *testing.T) {
+		cmd := newCmd()
+
+		fl, err := flags.FromCommand(cmd, dict)
+		require.NoError(t, err)
+
+		cmd.SetArgs([]string{"--port", "8"})
+		require.NoError(t, cmd.Execute())
+
+		cfg := Config{Host: "config.host", Timeout: time.Second}
+		require.NoError(t, flags.SetFlags(&cfg, fl))
+
+		assert.Equal(t, Config{Host: "config.host", Port: 8, Timeout: time.Second}, cfg)
+	})
+}
