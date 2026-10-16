@@ -105,7 +105,9 @@ func RootCmd() *cobra.Command {
 For more advanced usage, including integration with `pflag` and `cobra`, refer to the `examples/` directory:
 -   [`examples/basic`](./examples/basic/README.md)
 -   [`examples/cobra`](./examples/cobra/README.md)
+-   [`examples/cobra-autobinding`](./examples/cobra-autobinding/README.md)
 -   [`examples/pflags`](./examples/pflags/README.md)
+-   [`examples/env-list`](./examples/env-list/README.md)
 
 ## Config File Lookup
 
@@ -144,6 +146,53 @@ When multiple configuration sources are defined, `config` resolves values based 
 5.  **Command-line flags**: Values passed as command-line arguments (e.g., `--host`, `-P`) and bound one by one with `flags.NewFlagList` and `BindCmdFlag`, or all at once by name with `flags.FromCommand(cmd, idx)`: every flag whose name matches a field (`--host` → `Host`, `--sub-name` → `Sub.Name`) is bound, other flags are skipped. A `flag` tag overrides the name: with `flag:"addr"` only `--addr` sets the field, with `flag:"-"` no flag is bound to it by name. A custom `pflag.Value` (e.g. an enum registered with `cmd.Flags().Var`) whose variable has the type of the field sets the field directly; otherwise its `String()` is parsed into the field.
 
 This order ensures that command-line flags always override environment variables, which in turn override storage and configuration file settings, and finally, struct defaults provide a baseline.
+
+## Environment Variables
+
+Environment variable names are built from the name given with `config.WithName` and the field names of the config struct:
+
+-   The name is the prefix: `my-app` → `MY_APP_`. Without a name, there is no prefix.
+-   Field names are converted to SNAKE_CASE and joined with `_`: `Server.ListenAddress` → `MY_APP_SERVER_LISTEN_ADDRESS`.
+-   `env:"NAME"` replaces the field name: ``Database Database `env:"DB"` `` → `MY_APP_DB_HOST`.
+-   `env:"-"` adds no name for the field itself, its fields are added to the parent: `MY_APP_HOST` instead of `MY_APP_COMMON_HOST`.
+-   `env:"--"` excludes the field and everything below it.
+-   Two fields with the same name (e.g. `Host` and a `Host` field of an `env:"-"` struct) make `Load` return an error.
+-   Slice and map elements use an index or key in brackets: `MY_APP_ENDPOINTS[0]_NAME`, `MY_APP_LABELS[team]`. Map keys are lowercased.
+
+### Listing environment variables
+
+`env.List` returns all environment variables a config struct accepts, with the current value of the ones that are set. Slices and maps are listed with a `[]` placeholder.
+
+```go
+import "github.com/zauberhaus/config/pkg/env"
+
+vars, err := env.List(MyConfig{}, env.WithName("my-app"))
+if err != nil {
+	return err
+}
+
+for _, k := range slices.Sorted(maps.Keys(vars)) {
+	fmt.Printf("%s=%s\n", k, vars[k])
+}
+```
+
+To get only the names, without reading the environment, use the index. `idx.String()` also shows the config path and type for each name.
+
+```go
+import "github.com/zauberhaus/config/pkg/index"
+
+idx, err := index.New[MyConfig](nil)
+if err != nil {
+	return err
+}
+
+prefix := env.Prefix("my-app") // MY_APP_
+for _, k := range idx.Keys() {
+	fmt.Println(prefix + k)
+}
+```
+
+If you use `config.WithReplacer`, pass the same map to `index.New` or `env.WithReplacer`, so the listed names match the ones `Load` reads. See [`examples/env-list`](./examples/env-list/README.md) for a complete example.
 
 ## Custom Storage
 

@@ -15,9 +15,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zauberhaus/config"
+	"github.com/zauberhaus/config/pkg/flags"
 	"go.uber.org/mock/gomock"
 )
 
@@ -189,6 +191,27 @@ func TestLoad_Storage(t *testing.T) {
 
 		assert.Equal(t, "env.host.com", cfg.Host) // from env
 		assert.Equal(t, 7070, cfg.Port)           // from storage
+	})
+
+	t.Run("flags override storage and env", func(t *testing.T) {
+		t.Setenv("STORAGE_FLAGS_HOST", "env.host.com")
+		t.Setenv("STORAGE_FLAGS_PORT", "6060")
+
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		fs.String("host", "", "host")
+		require.NoError(t, fs.Parse([]string{"--host", "flag.host.com"}))
+
+		fl := flags.NewFlagList(nil)
+		require.NoError(t, fl.BindFlag(fs, "Host", fs.Lookup("host")))
+
+		s := newMemStorage(map[string]any{"host": "storage.host.com", "port": 7070, "sub.name": "storage-sub"})
+
+		cfg, _, err := config.Load[*TestLoadConfig](config.WithName("storage-flags"), config.WithStorage(s), config.WithFlags(fl))
+		require.NoError(t, err)
+
+		assert.Equal(t, "flag.host.com", cfg.Host)   // from flag
+		assert.Equal(t, 6060, cfg.Port)              // from env
+		assert.Equal(t, "storage-sub", cfg.Sub.Name) // from storage
 	})
 
 	t.Run("optional struct pointer is created", func(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/zauberhaus/config/pkg/flags"
 	"github.com/zauberhaus/config/pkg/index"
+	"github.com/zauberhaus/lookup"
 )
 
 type ConfigOptions struct {
@@ -23,6 +24,7 @@ type ConfigOptions struct {
 	Flags      *flags.Flags
 	Extensions []Extension
 	Replacer   map[string]string
+	Hooks      []lookup.ParserHook
 
 	WorkingDir    bool
 	WorldWritable bool
@@ -38,6 +40,15 @@ type optionFunc func(o *ConfigOptions)
 
 func (f optionFunc) Set(o *ConfigOptions) {
 	f(o)
+}
+
+// WithParserHooks parses the values of the storage, the environment and the
+// flags into types the parser doesn't know, such as an interface type. It
+// adds to the hooks of an earlier WithParserHooks.
+func WithParserHooks(hooks ...lookup.ParserHook) Option {
+	return optionFunc(func(o *ConfigOptions) {
+		o.Hooks = append(o.Hooks, hooks...)
+	})
 }
 
 // WithFile sets the config file to load and disables the search for one,

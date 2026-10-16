@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zauberhaus/lookup"
 )
 
 func TestOptionFunc_Set(t *testing.T) {
@@ -72,5 +73,56 @@ func TestSetFlags_Options(t *testing.T) {
 		c := &cfg{}
 		require.NoError(t, SetFlags(c, newFlags(t), []Option(nil)...))
 		assert.Equal(t, "flag.host", c.Host)
+	})
+}
+
+type secret interface {
+	Reveal() string
+}
+
+type textSecret string
+
+func (s textSecret) Reveal() string {
+	return string(s)
+}
+
+func TestWithParserHooks(t *testing.T) {
+	type cfg struct {
+		Token secret
+	}
+
+	hook := lookup.NewParserHookFor[secret](func(txt string) (any, error) {
+		return textSecret(txt), nil
+	})
+
+	newFlags := func(t *testing.T) *Flags {
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		fs.String("token", "", "token")
+		require.NoError(t, fs.Set("token", "abc"))
+
+		fl := NewFlagList(nil)
+		require.NoError(t, fl.BindFlag(fs, "Token", fs.Lookup("token")))
+
+		return fl
+	}
+
+	t.Run("adds hooks", func(t *testing.T) {
+		o := &FlagOptions{}
+		WithParserHooks(hook).Set(o)
+		WithParserHooks(hook, hook).Set(o)
+		assert.Len(t, o.Hooks, 3)
+	})
+
+	t.Run("parses into an interface type", func(t *testing.T) {
+		c := &cfg{}
+		require.NoError(t, SetFlags(c, newFlags(t), WithParserHooks(hook)))
+		require.NotNil(t, c.Token)
+		assert.Equal(t, "abc", c.Token.Reveal())
+	})
+
+	t.Run("fails without hook", func(t *testing.T) {
+		err := SetFlags(&cfg{}, newFlags(t))
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "abc")
 	})
 }

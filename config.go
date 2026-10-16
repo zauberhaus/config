@@ -174,7 +174,7 @@ func Load[P ~*T, T any](options ...Option) (P, string, error) {
 		}
 
 		for k, v := range all {
-			_, err := lookup.Set(&cfg, k, v)
+			_, err := lookup.Set(&cfg, k, v, o.Hooks...)
 			if err != nil {
 				return nil, o.File, errors.Wrap("storage", k, v, err)
 			}
@@ -182,14 +182,14 @@ func Load[P ~*T, T any](options ...Option) (P, string, error) {
 	}
 
 	if len(o.Name) > 0 {
-		_, err = env.Set(cfg, env.WithName(o.Name), env.WithStrict(o.Strict), env.WithIndex(o.Index))
+		_, err = env.Set(cfg, env.WithName(o.Name), env.WithStrict(o.Strict), env.WithIndex(o.Index), env.WithParserHooks(o.Hooks...))
 		if err != nil {
 			return nil, o.File, err
 		}
 	}
 
 	if o.Flags != nil {
-		err = flags.SetFlags(cfg, o.Flags)
+		err = flags.SetFlags(cfg, o.Flags, flags.WithParserHooks(o.Hooks...))
 		if err != nil {
 			return nil, o.File, err
 		}

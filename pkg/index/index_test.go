@@ -453,3 +453,105 @@ func TestIndex_FlagTag(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestNew_DuplicateEnvName(t *testing.T) {
+	type DB struct {
+		Host string
+	}
+
+	t.Run("field and skipped struct field", func(t *testing.T) {
+		type Config struct {
+			Host   string
+			Common DB `env:"-"`
+		}
+
+		_, err := index.New[Config](nil)
+		require.Error(t, err)
+		assert.EqualError(t, err, `environment variable "HOST" is used by common.host and host`)
+	})
+
+	t.Run("field name and nested field", func(t *testing.T) {
+		type Config struct {
+			DbHost string
+			DB     DB
+		}
+
+		_, err := index.New[Config](nil)
+		require.Error(t, err)
+		assert.EqualError(t, err, `environment variable "DB_HOST" is used by db.host and dbhost`)
+	})
+
+	t.Run("env tag", func(t *testing.T) {
+		type Config struct {
+			Name  string
+			Label string `env:"NAME"`
+		}
+
+		_, err := index.New[Config](nil)
+		require.Error(t, err)
+		assert.EqualError(t, err, `environment variable "NAME" is used by label and name`)
+	})
+
+	t.Run("replacer", func(t *testing.T) {
+		type Config struct {
+			Database DB
+			DB       DB
+		}
+
+		_, err := index.New[Config](map[string]string{"Database": "DB"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `environment variable "DB" is used by database and db`)
+	})
+
+	t.Run("in nested struct", func(t *testing.T) {
+		type Config struct {
+			Server struct {
+				Host string
+				Sub  DB `env:"-"`
+			}
+		}
+
+		_, err := index.New[Config](nil)
+		require.Error(t, err)
+		assert.EqualError(t, err, `environment variable "SERVER_HOST" is used by server.host and server.sub.host`)
+	})
+
+	t.Run("in slice element", func(t *testing.T) {
+		type Config struct {
+			Items []struct {
+				Host string
+				Sub  DB `env:"-"`
+			}
+		}
+
+		_, err := index.New[Config](nil)
+		require.Error(t, err)
+		assert.EqualError(t, err, `environment variable "ITEMS[]_HOST" is used by items[].host and items[].sub.host`)
+	})
+
+	t.Run("excluded field doesn't collide", func(t *testing.T) {
+		type Config struct {
+			Host   string
+			Common DB `env:"--"`
+		}
+
+		idx, err := index.New[Config](nil)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"HOST"}, idx.Keys())
+	})
+
+	t.Run("skipped struct without collision", func(t *testing.T) {
+		type Config struct {
+			Port   int
+			Common DB `env:"-"`
+		}
+
+		idx, err := index.New[Config](nil)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"HOST", "PORT"}, idx.Keys())
+
+		p, ok := idx.Find("HOST")
+		assert.True(t, ok)
+		assert.Equal(t, "common.host", p)
+	})
+}

@@ -388,3 +388,141 @@ func TestEnv_IndexError(t *testing.T) {
 		assert.Contains(t, err.Error(), "can't skip slice, array or map")
 	})
 }
+
+// Map keys are lowercased, so a key with upper case letters can't be set from
+// the environment.
+func TestSetEnv_MapKeysAreLowercased(t *testing.T) {
+	type Config struct {
+		Labels map[string]string
+	}
+
+	t.Setenv("APP_LABELS[team]", "core")
+	t.Setenv("APP_LABELS[Owner]", "dil")
+	t.Setenv("APP_LABELS[ENV]", "prod")
+
+	cfg, err := env.Set(&Config{}, env.WithName("app"), env.Strict)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"team": "core", "owner": "dil", "env": "prod"}, cfg.Labels)
+}
+
+func TestSetEnv_NestedSliceIndexes(t *testing.T) {
+	type Inner struct {
+		Values []string
+	}
+
+	type Config struct {
+		Outer []Inner
+	}
+
+	t.Setenv("APP_OUTER[1]_VALUES[2]", "v")
+
+	cfg, err := env.Set(&Config{}, env.WithName("app"), env.Strict)
+	require.NoError(t, err)
+	require.Len(t, cfg.Outer, 2)
+	assert.Empty(t, cfg.Outer[0].Values)
+	assert.Equal(t, []string{"", "", "v"}, cfg.Outer[1].Values)
+}
+
+func TestSetEnv_PointerStruct(t *testing.T) {
+	type DB struct {
+		Host string
+		Port int
+	}
+
+	type Config struct {
+		DB *DB
+	}
+
+	t.Run("created when set", func(t *testing.T) {
+		t.Setenv("APP_DB_HOST", "db.local")
+
+		cfg, err := env.Set(&Config{}, env.WithName("app"))
+		require.NoError(t, err)
+		require.NotNil(t, cfg.DB)
+		assert.Equal(t, "db.local", cfg.DB.Host)
+	})
+
+	t.Run("nil when not set", func(t *testing.T) {
+		cfg, err := env.Set(&Config{}, env.WithName("app"))
+		require.NoError(t, err)
+		assert.Nil(t, cfg.DB)
+	})
+}
+
+func TestSetEnv_PrefixIsCaseSensitive(t *testing.T) {
+	type Config struct {
+		Host string
+	}
+
+	t.Setenv("app_host", "lower")
+	t.Setenv("App_HOST", "mixed")
+
+	cfg, err := env.Set(&Config{}, env.WithName("app"), env.Strict)
+	require.NoError(t, err)
+	assert.Empty(t, cfg.Host)
+
+	values, err := env.List(Config{}, env.WithName("app"))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"APP_HOST": ""}, values)
+}
+
+func TestSetEnv_DuplicateEnvName(t *testing.T) {
+	type DB struct {
+		Host string
+	}
+
+	type Config struct {
+		Host   string
+		Common DB `env:"-"`
+	}
+
+	t.Setenv("APP_HOST", "h")
+
+	_, err := env.Set(&Config{}, env.WithName("app"))
+	assert.EqualError(t, err, `environment variable "HOST" is used by common.host and host`)
+
+	_, err = env.List(Config{}, env.WithName("app"))
+	assert.EqualError(t, err, `environment variable "HOST" is used by common.host and host`)
+}
+
+type secret interface {
+	Reveal() string
+}
+
+type textSecret string
+
+func (s textSecret) Reveal() string {
+	return string(s)
+}
+
+func TestSetEnv_WithParserHooks(t *testing.T) {
+	type Config struct {
+		Token secret
+	}
+
+	hook := lookup.NewParserHookFor[secret](func(txt string) (any, error) {
+		return textSecret(txt), nil
+	})
+
+	t.Setenv("APP_TOKEN", "abc")
+
+	t.Run("parses into an interface type", func(t *testing.T) {
+		cfg, err := env.Set(&Config{}, env.WithName("app"), env.WithParserHooks(hook))
+		require.NoError(t, err)
+		require.NotNil(t, cfg.Token)
+		assert.Equal(t, "abc", cfg.Token.Reveal())
+	})
+
+	t.Run("fails without hook", func(t *testing.T) {
+		_, err := env.Set(&Config{}, env.WithName("app"))
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "abc")
+	})
+
+	t.Run("hooks are added", func(t *testing.T) {
+		o := &env.EnvOptions{}
+		env.WithParserHooks(hook).Set(o)
+		env.WithParserHooks(hook, hook).Set(o)
+		assert.Len(t, o.Hooks, 3)
+	})
+}

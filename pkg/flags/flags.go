@@ -359,7 +359,7 @@ func SetFlags[T any](value T, f *Flags, options ...Option) error {
 				return config_errors.Wrap("flag", v.flag.Name, v.flag.Value.String(), err)
 			}
 
-			_, err = lookup.Set(value, k, val)
+			_, err = lookup.Set(value, k, val, o.Hooks...)
 			if err != nil {
 				return config_errors.Wrap("flag", v.flag.Name, val, err)
 			}

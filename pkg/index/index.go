@@ -236,7 +236,9 @@ func collect(v reflect.Type, tag []string, path []string, skip bool, d map[strin
 						return tmp, err
 					}
 
-					maps.Insert(m, maps.All(tmp))
+					if err := insert(m, tmp); err != nil {
+						return nil, err
+					}
 				} else {
 					if len(env) == 0 {
 						env = field.Name
@@ -264,7 +266,9 @@ func collect(v reflect.Type, tag []string, path []string, skip bool, d map[strin
 						}
 					}
 
-					maps.Insert(m, maps.All(tmp))
+					if err := insert(m, tmp); err != nil {
+						return nil, err
+					}
 				}
 
 			}
@@ -280,6 +284,22 @@ func collect(v reflect.Type, tag []string, path []string, skip bool, d map[strin
 	}
 
 	return m, nil
+}
+
+// insert adds the items of src to dst. Two fields with the same environment
+// variable name are an error, otherwise one of them couldn't be set.
+func insert(dst, src map[string]Item) error {
+	for _, k := range slices.Sorted(maps.Keys(src)) {
+		item := src[k]
+
+		if p, ok := dst[k]; ok && p.Path != item.Path {
+			return fmt.Errorf("environment variable %q is used by %s and %s", k, min(p.Path, item.Path), max(p.Path, item.Path))
+		}
+
+		dst[k] = item
+	}
+
+	return nil
 }
 
 func SnakeCase(s string) string {

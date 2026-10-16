@@ -124,7 +124,7 @@ func Set[T any](value T, options ...Option) (T, error) {
 	for _, k := range keys {
 		v := m[k]
 
-		_, err := lookup.Set(value, k, v)
+		_, err := lookup.Set(value, k, v, o.Hooks...)
 		if err != nil {
 			if _, ok := err.(*lookup.NotFoundError); ok {
 				if !o.Strict {

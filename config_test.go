@@ -521,3 +521,20 @@ func TestGetFileType(t *testing.T) {
 		})
 	}
 }
+
+func TestLoad_DuplicateEnvName(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("CONFIG", "")
+
+	type DB struct {
+		Host string
+	}
+
+	type Config struct {
+		Host   string
+		Common DB `env:"-"`
+	}
+
+	_, _, err := config.Load[*Config](config.WithName("dup-app"))
+	assert.EqualError(t, err, `environment variable "HOST" is used by common.host and host`)
+}

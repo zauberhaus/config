@@ -3,4 +3,9 @@ coverage.txt
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
+
 examples/cobra-autobinding/cobra-binding
+examples/env-list/env-list
+examples/basic/basic
+examples/cobra/cobra
+examples/pflags/pflags
