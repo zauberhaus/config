@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/zauberhaus/config/compare/v1.4.1...v1.5.0) (2026-10-16)
+
+
+### Features
+
+* add parser hooks ([6f1d69a](https://github.com/zauberhaus/config/commit/6f1d69a5edd109da011f0c907d00a7a9b0bb7c00))
+
+
+### Bug Fixes
+
+* add more tests and bug fixes ([be17fdf](https://github.com/zauberhaus/config/commit/be17fdfce32012a10f1db8872fb04af7ad5814ba))
+
 ## [1.4.1](https://github.com/zauberhaus/config/compare/v1.4.0...v1.4.1) (2026-10-05)
 
 
