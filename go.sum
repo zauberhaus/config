@@ -17,8 +17,8 @@ github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWD
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 github.com/tiendc/go-deepcopy v1.7.2 h1:Ut2yYR7W9tWjTQitganoIue4UGxZwCcJy3orjrrIj44=
 github.com/tiendc/go-deepcopy v1.7.2/go.mod h1:4bKjNC2r7boYOkD2IOuZpYjmlDdzjbpTRyCx+goBCJQ=
-github.com/zauberhaus/lookup v1.1.1 h1:99suro6FEL07ZsKXxUaATMUq1knnS6Vmb78XY2CoXoc=
-github.com/zauberhaus/lookup v1.1.1/go.mod h1:4kaGP5UCx6s2F8NYQxrX4EU1GwK0h+PWy+YTSMSGQQ0=
+github.com/zauberhaus/lookup v1.1.2 h1:fLup9jw8uCHRJPU90FLuyhbYb7YU8Tww4sfzb0QOvWU=
+github.com/zauberhaus/lookup v1.1.2/go.mod h1:4kaGP5UCx6s2F8NYQxrX4EU1GwK0h+PWy+YTSMSGQQ0=
 github.com/zauberhaus/random v1.1.0 h1:mJ4JVKpT0aHIuFGI9a08PN8yyOrvYzOOECP+4mJyX/s=
 github.com/zauberhaus/random v1.1.0/go.mod h1:ov/UkUGUOmGAmm9Y9NucjwMBHDjB1ZxmtMk9zMEfXJg=
 github.com/zauberhaus/reflect_utils v1.0.0 h1:Mc1QULdIc7UtMsdUiUBcgCGlC3wTpB7HZ4bCs0o29oA=

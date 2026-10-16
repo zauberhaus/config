@@ -156,7 +156,8 @@ Environment variable names are built from the name given with `config.WithName` 
 -   `env:"NAME"` replaces the field name: ``Database Database `env:"DB"` `` → `MY_APP_DB_HOST`.
 -   `env:"-"` adds no name for the field itself, its fields are added to the parent: `MY_APP_HOST` instead of `MY_APP_COMMON_HOST`.
 -   `env:"--"` excludes the field and everything below it.
--   Slice and map elements use an index or key in brackets: `MY_APP_ENDPOINTS[0]_NAME`, `MY_APP_LABELS[team]`.
+-   Two fields with the same name (e.g. `Host` and a `Host` field of an `env:"-"` struct) make `Load` return an error.
+-   Slice and map elements use an index or key in brackets: `MY_APP_ENDPOINTS[0]_NAME`, `MY_APP_LABELS[team]`. Map keys are lowercased.
 
 ### Listing environment variables
 
