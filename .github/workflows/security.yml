@@ -1,0 +1,40 @@
+name: Security
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/zauberhaus/security-scanner:latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0 # gitleaks scans the full history
+
+    - name: Trust workspace
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Run govulncheck
+      run: govulncheck ./...
+
+    - name: Run govulncheck
+      run: gosec ./... 
+
+    - name: Run gitleaks (working tree)
+      run: gitleaks dir --no-banner --redact .
+
+    - name: Run gitleaks (git history)
+      run: gitleaks git --no-banner --redact .
+
