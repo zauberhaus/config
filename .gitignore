@@ -9,3 +9,7 @@ examples/env-list/env-list
 examples/basic/basic
 examples/cobra/cobra
 examples/pflags/pflags
+
+node_modules
+package.json
+package-lock.json

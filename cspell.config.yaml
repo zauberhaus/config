@@ -38,6 +38,7 @@ words:
   - Println
   - strconv
   - stretchr
+  - Synk
   - testhost
   - unpushed
   - verylongname
