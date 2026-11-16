@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/zauberhaus/config/compare/v1.5.0...v1.5.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* upgrade dependencies and improve release process ([f49d42a](https://github.com/zauberhaus/config/commit/f49d42afd9de6a49b9d73d1b3fcd0106b92e3a4b))
+
 ## [1.5.0](https://github.com/zauberhaus/config/compare/v1.4.1...v1.5.0) (2026-10-16)
 
 
